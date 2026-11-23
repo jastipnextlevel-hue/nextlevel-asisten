@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Nela - NEXT LEVEL">
+<title>Nela (Next Level Asisten)</title>
+<link rel="icon" type="image/jpeg" href="nela.jpg">
+<link rel="apple-touch-icon" href="nela.jpg">
+<style>
+:root {
+  --wa-header-bg: #ffffff;
+  --wa-border: #e9edef;
+  --wa-wall: #efeae2;
+  --wa-green: #00a884;
+  --wa-green-dark: #008069;
+  --wa-out-bubble: #d9fdd3;
+  --wa-in-bubble: #ffffff;
+  --wa-text: #111b21;
+  --wa-sub: #667781;
+  --safe-top: max(8px, env(safe-area-inset-top, 0px));
+  --safe-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+}
+html, body {
+  height: 100%;
+  background: #d1d7db;
+  color: var(--wa-text);
+  overflow: hidden;
+}
+
+.wa-app {
+  width: 100%;
+  max-width: 480px;
+  height: 100vh;
+  height: 100dvh;
+  margin: 0 auto;
+  background: var(--wa-wall);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: 0 2px 18px rgba(11, 20, 26, 0.14);
+}
+
+/* HEADER WHATSAPP PUTIH BERSIH */
+.wa-header {
+  background: var(--wa-header-bg);
+  padding: var(--safe-top) 10px 9px 12px;
+  border-bottom: 1px solid var(--wa-border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+  z-index: 30;
+}
+.wa-avatar-wrap {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+.wa-avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
+}
+.wa-contact-info {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+.wa-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.wa-name {
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--wa-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wa-verified {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+.wa-status {
+  font-size: 12px;
+  color: var(--wa-sub);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s ease;
+}
+.wa-status.typing {
+  color: var(--wa-green);
+  font-weight: 500;
+}
+.wa-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.wa-icon-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #54656f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+}
+.wa-icon-btn:active {
+  background: #f0f2f5;
+}
+
+/* MENU DROPDOWN TITIK TIGA WHATSAPP */
+.wa-menu-dropdown {
+  position: absolute;
+  top: calc(54px + env(safe-area-inset-top, 0px));
+  right: 10px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(11, 20, 26, 0.18);
+  padding: 6px 0;
+  min-width: 215px;
+  display: none;
+  z-index: 100;
+  border: 1px solid #f0f2f5;
+}
+.wa-menu-dropdown.open {
+  display: block;
+}
+.wa-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 11px 16px;
+  text-align: left;
+  font-size: 14px;
+  color: var(--wa-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.wa-menu-item:active {
+  background: #f5f6f6;
+}
+
+/* AREA OBROLAN WHATSAPP */
+.wa-chat-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 10px 14px 14px 14px;
+  background-color: var(--wa-wall);
+  background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23d5cec4' fill-opacity='0.32' fill-rule='evenodd'%3E%3Ccircle cx='14' cy='14' r='2'/%3E%3Ccircle cx='54' cy='26' r='1.8'/%3E%3Cpath d='M34 52l4-4 4 4-4 4z'/%3E%3Cpath d='M66 64c2.2 0 4-1.8 4-4h-8c0 2.2 1.8 4 4 4z'/%3E%3Cpath d='M16 62h6v2h-6z'/%3E%3C/g%3E%3C/svg%3E");
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.wa-date-pill {
+  align-self: center;
+  background: #ffffff;
+  color: #54656f;
+  font-size: 11.5px;
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: 7.5px;
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+  margin: 4px 0 8px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* BALON CHAT WHATSAPP + EKOR (TAIL) */
+.wa-msg {
+  position: relative;
+  max-width: 84%;
+  padding: 7px 10px 6px 10px;
+  font-size: 14px;
+  line-height: 1.42;
+  color: var(--wa-text);
+  box-shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.wa-msg.in {
+  align-self: flex-start;
+  background: var(--wa-in-bubble);
+  border-radius: 0 8px 8px 8px;
+  margin-left: 6px;
+}
+.wa-msg.in::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -8px;
+  width: 0;
+  height: 0;
+  border-top: 0px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-right: 8px solid var(--wa-in-bubble);
+}
+.wa-msg.out {
+  align-self: flex-end;
+  background: var(--wa-out-bubble);
+  border-radius: 8px 0 8px 8px;
+  margin-right: 6px;
+}
+.wa-msg.out::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: -8px;
+  width: 0;
+  height: 0;
+  border-top: 0px solid transparent;
+  border-bottom: 10px solid transparent;
+  border-left: 8px solid var(--wa-out-bubble);
+}
+
+.wa-msg p { margin-bottom: 6px; }
+.wa-msg p:last-of-type { margin-bottom: 0; }
+.wa-msg ul, .wa-msg ol { margin: 4px 0 6px 18px; }
+.wa-msg li { margin-bottom: 3px; }
+.wa-msg a { color: #027eb5; text-decoration: none; font-weight: 500; }
+.wa-msg a:hover { text-decoration: underline; }
+.wa-msg img.chat-media {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 5px;
+  display: block;
+}
+.wa-video-badge {
+  background: rgba(11, 20, 26, 0.06);
+  border-radius: 6px;
+  padding: 7px 9px;
+  margin-bottom: 5px;
+  font-size: 12.5px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wa-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  float: right;
+  margin: 4px 0 -2px 8px;
+  font-size: 11px;
+  color: var(--wa-sub);
+  line-height: 1;
+}
+.wa-ticks {
+  width: 16px;
+  height: 11px;
+  color: #00a884; /* Centang dua hijau WhatsApp */
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* INDIKATOR MENGETIK DI DALAM CHAT */
+.typing-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 4px;
+}
+.typing-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8696a0;
+  animation: waBounce 1.3s infinite ease-in-out both;
+}
+.typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+.typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes waBounce {
+  0%, 80%, 100% { transform: scale(0.5); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+/* SUGGESTION CHIPS RINGAN DI ATAS KOLOM KETIK */
+.wa-quick-bar {
+  padding: 5px 10px 2px 10px;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  background: transparent;
+}
+.wa-quick-bar::-webkit-scrollbar { display: none; }
+.wa-chip {
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid #d1d7db;
+  color: #3b4a54;
+  border-radius: 16px;
+  padding: 5px 11px;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 1px 1px rgba(11, 20, 26, 0.08);
+}
+.wa-chip:active {
+  background: #f0f2f5;
+}
+
+/* PREVIEW LAMPIRAN SEBELUM DIKIRIM */
+.wa-attach-preview {
+  display: none;
+  margin: 4px 10px 0 10px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 7px 10px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  box-shadow: 0 1px 3px rgba(11, 20, 26, 0.14);
+  flex-shrink: 0;
+}
+.wa-attach-preview.show {
+  display: flex;
+}
+.wa-attach-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.wa-attach-thumb {
+  width: 38px;
+  height: 38px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: #f0f2f5;
+  flex-shrink: 0;
+}
+.wa-attach-name {
+  font-size: 12.5px;
+  color: var(--wa-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wa-attach-remove {
+  border: none;
+  background: #f0f2f5;
+  color: #54656f;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* KOLOM INPUT WHATSAPP MELAYANG */
+.wa-composer {
+  padding: 6px 8px calc(6px + var(--safe-bottom)) 8px;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  background: transparent;
+  flex-shrink: 0;
+}
+.wa-input-pill {
+  flex: 1;
+  min-height: 44px;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 4px 8px 4px 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 1px 1.5px rgba(11, 20, 26, 0.13);
+}
+.wa-input-pill input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  color: var(--wa-text);
+  padding: 6px 0;
+}
+.wa-input-pill input::placeholder {
+  color: #8696a0;
+}
+.wa-clip-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: #54656f;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.wa-clip-btn:active {
+  background: #f0f2f5;
+}
+.wa-send-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: var(--wa-green);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(11, 20, 26, 0.22);
+}
+.wa-send-btn:active {
+  background: var(--wa-green-dark);
+  transform: scale(0.95);
+}
+
+/* MODAL KALKULATOR TARIF & PROFIL NELA */
+.wa-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(11, 20, 26, 0.55);
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+}
+.wa-modal.open {
+  display: flex;
+}
+.wa-sheet {
+  width: 100%;
+  max-width: 480px;
+  max-height: 88vh;
+  background: #ffffff;
+  border-radius: 18px 18px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 -4px 24px rgba(0,0,0,0.2);
+}
+.wa-sheet-head {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--wa-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #ffffff;
+}
+.wa-sheet-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--wa-text);
+}
+.wa-sheet-close {
+  border: none;
+  background: #f0f2f5;
+  color: #54656f;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 15px;
+  cursor: pointer;
+}
+.wa-sheet-body {
+  padding: 14px;
+  overflow-y: auto;
+  background: #f7f8fa;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.calc-box {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 12px;
+  border: 1px solid #e9edef;
+}
+.calc-box h4 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--wa-green-dark);
+  margin-bottom: 8px;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.inp-group {
+  background: #f0f2f5;
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.inp-group label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: #54656f;
+  margin-bottom: 2px;
+}
+.inp-group input, .inp-group select {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--wa-text);
+}
+.item-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 7px;
+}
+.item-card-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: #54656f;
+  margin-bottom: 5px;
+}
+.btn-add-prod {
+  width: 100%;
+  background: #e7fce3;
+  color: var(--wa-green-dark);
+  border: 1px dashed var(--wa-green);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.res-card {
+  background: #008069;
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 12px;
+}
+.res-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12.5px;
+  padding: 2.5px 0;
+}
+.res-grand {
+  display: flex;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 700;
+  border-top: 1px solid rgba(255,255,255,0.28);
+  margin-top: 6px;
+  padding-top: 6px;
+}
+.res-driver {
+  margin-top: 8px;
+  background: rgba(0,0,0,0.18);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+</style>
+</head>
+<body>
+<div class="wa-app">
+  <!-- HEADER PUTIH WHATSAPP -->
+  <header class="wa-header">
+    <div class="wa-avatar-wrap" onclick="bukaProfilNela()">
+      <img class="wa-avatar" id="nelaAvatar" src="nela.jpg" onerror="this.onerror=null;this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%2300a884%22/><text x=%2250%22 y=%2262%22 font-size=%2244%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22sans-serif%22 font-weight=%22bold%22>N</text></svg>';" alt="Nela">
+    </div>
+    <div class="wa-contact-info" onclick="bukaProfilNela()">
+      <div class="wa-name-row">
+        <span class="wa-name">Nela (Next Level Asisten)</span>
+        <svg class="wa-verified" viewBox="0 0 24 24" fill="#00a884"><path d="M12 2l2.39 2.18 3.22-.34.68 3.17 2.86 1.54-1.3 2.97 1.3 2.97-2.86 1.54-.68 3.17-3.22-.34L12 22l-2.39-2.18-3.22.34-.68-3.17-2.86-1.54 1.3-2.97-1.3-2.97 2.86-1.54.68-3.17 3.22.34L12 2zm-1.4 13.2l6.1-6.1-1.4-1.4-4.7 4.7-2.1-2.1-1.4 1.4 3.5 3.5z"/></svg>
+      </div>
+      <div class="wa-status" id="headerStatus">online</div>
+    </div>
+    <div class="wa-header-actions">
+      <button type="button" class="wa-icon-btn" title="Kalkulator Tarif" onclick="bukaKalkulator()">🧮</button>
+      <button type="button" class="wa-icon-btn" title="Menu" onclick="toggleMenuWa(event)">⋮</button>
+    </div>
+
+    <div class="wa-menu-dropdown" id="waMenuDropdown">
+      <button type="button" class="wa-menu-item" onclick="tutupMenuWa(); bukaKalkulator();">🧮 Kalkulator Tarif &amp; Fee</button>
+      <button type="button" class="wa-menu-item" onclick="tutupMenuWa(); resetChatWa();">🔄 Bersihkan &amp; Mulai Ulang</button>
+      <button type="button" class="wa-menu-item" onclick="tutupMenuWa(); window.open('https://nextlevel-driver-rzsb.vercel.app/', '_blank');">🛵 Buka Aplikasi Driver</button>
+      <button type="button" class="wa-menu-item" onclick="tutupMenuWa(); window.open('https://wa.me/6288971320461', '_blank');">💬 Hubungi Admin Utama</button>
+    </div>
+  </header>
+
+  <!-- RUANG CHAT WHATSAPP -->
+  <main class="wa-chat-body" id="chatBody"></main>
+
+  <!-- TOMBOL PERTANYAAN CEPAT -->
+  <div class="wa-quick-bar" id="quickBar">
+    <button type="button" class="wa-chip" onclick="kirimPesan('Ongkir 5 km berapa?')">Ongkir 5 km berapa?</button>
+    <button type="button" class="wa-chip" onclick="kirimPesan('Cara daftar jadi driver')">Cara daftar driver</button>
+    <button type="button" class="wa-chip" onclick="kirimPesan('Tips ongkir hemat banyak toko')">Tips hemat banyak toko</button>
+    <button type="button" class="wa-chip" onclick="kirimPesan('Cara pasang aplikasi & NTFY')">Pasang aplikasi &amp; NTFY</button>
+    <button type="button" class="wa-chip" onclick="kirimPesan('Order emas & barang berharga')">Order emas / risiko tinggi</button>
+  </div>
+
+  <!-- PREVIEW LAMPIRAN FOTO / VIDEO -->
+  <div class="wa-attach-preview" id="attachPreview">
+    <div class="wa-attach-info">
+      <img class="wa-attach-thumb" id="attachThumb" src="" alt="Preview">
+      <span class="wa-attach-name" id="attachName">Memproses lampiran...</span>
+    </div>
+    <button type="button" class="wa-attach-remove" onclick="hapusLampiran()">✕</button>
+  </div>
+
+  <!-- KOLOM INPUT PESAN ALA WHATSAPP -->
+  <form class="wa-composer" onsubmit="event.preventDefault(); kirimPesan();">
+    <div class="wa-input-pill">
+      <input type="text" id="msgInput" placeholder="Ketik pesan" autocomplete="off">
+      <input type="file" id="fileInput" accept="image/*,video/*" style="display:none;" onchange="pilihLampiran(this)">
+      <button type="button" class="wa-clip-btn" title="Kirim foto, screenshot, atau rekam layar" onclick="document.getElementById('fileInput').click()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </button>
+    </div>
+    <button type="submit" class="wa-send-btn" aria-label="Kirim">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </form>
+</div>
+
+<!-- MODAL KALKULATOR TARIF -->
+<div class="wa-modal" id="calcModal" onclick="if(event.target.id==='calcModal') tutupKalkulator()">
+  <div class="wa-sheet">
+    <div class="wa-sheet-head">
+      <span class="wa-sheet-title">🧮 Kalkulator Tarif &amp; Fee NEXT LEVEL</span>
+      <button type="button" class="wa-sheet-close" onclick="tutupKalkulator()">✕</button>
+    </div>
+    <div class="wa-sheet-body">
+      <div class="calc-box">
+        <h4>1. Ongkir, Uang Tunggu &amp; Biaya Lain</h4>
+        <div class="grid-2">
+          <div class="inp-group"><label>Jarak (KM)</label><input type="text" inputmode="decimal" id="cKm" value="3" oninput="hitungSemua()"></div>
+          <div class="inp-group"><label>Waktu Tunggu (Menit)</label><input type="text" inputmode="numeric" id="cTunggu" value="0" oninput="hitungSemua()"></div>
+        </div>
+        <div class="grid-2" style="margin-top:8px;">
+          <div class="inp-group"><label>Parkir (Rp)</label><input type="text" inputmode="numeric" id="cParkir" value="0" oninput="hitungSemua()"></div>
+          <div class="inp-group"><label>Fee Kesepakatan (Rp)</label><input type="text" inputmode="numeric" id="cSepakat" value="0" oninput="hitungSemua()"></div>
+        </div>
+      </div>
+
+      <div class="calc-box">
+        <h4>2. Fee Produk Jastip (1 Toko / Lokasi)</h4>
+        <div class="inp-group" style="margin-bottom:8px;">
+          <label>Jenis Layanan</label>
+          <select id="cJenis" onchange="hitungSemua()">
+            <option value="jastip">🛍️ Jastip Belanja (Grup A – NEW2)</option>
+            <option value="ambil">📦 Ambil Pesanan Lunas (Rp 2.000 / Titik)</option>
+            <option value="ojek">🏍️ Ojek Panggilan / Custom</option>
+          </select>
+        </div>
+
+        <div id="areaJastip">
+          <div id="listProdukCalc"></div>
+          <button type="button" class="btn-add-prod" onclick="tambahProdukCalc()">+ Tambah Produk (Toko Sama)</button>
+        </div>
+
+        <div id="areaAmbil" style="display:none; margin-bottom:8px;">
+          <div class="inp-group"><label>Jumlah Titik Ambil</label><input type="text" inputmode="numeric" id="cTitik" value="1" oninput="hitungSemua()"></div>
+        </div>
+
+        <div class="res-card" style="margin-top:10px;">
+          <div class="res-row"><span>Belanja Barang:</span><b id="rBarang">Rp 0</b></div>
+          <div class="res-row"><span>Fee Produk / Ambil:</span><b id="rFee">Rp 0</b></div>
+          <div class="res-row"><span>Ongkos Kirim:</span><b id="rOngkir">Rp 10.000</b></div>
+          <div class="res-row"><span>Uang Tunggu:</span><b id="rTunggu">Rp 0</b></div>
+          <div class="res-row"><span>Parkir + Kesepakatan:</span><b id="rLain">Rp 0</b></div>
+          <div class="res-row"><span>Biaya Admin (A):</span><b>Rp 1.000</b></div>
+          <div class="res-grand"><span>ESTIMASI TOTAL:</span><span id="rTotal">Rp 11.000</span></div>
+          <div class="res-driver" id="rDriverSplit"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL INFO KONTAK NELA -->
+<div class="wa-modal" id="profilModal" onclick="if(event.target.id==='profilModal') tutupProfilNela()">
+  <div class="wa-sheet">
+    <div class="wa-sheet-head">
+      <span class="wa-sheet-title">Info Kontak</span>
+      <button type="button" class="wa-sheet-close" onclick="tutupProfilNela()">✕</button>
+    </div>
+    <div class="wa-sheet-body" style="align-items:center; text-align:center;">
+      <img src="nela.jpg" style="width:110px; height:110px; border-radius:50%; object-fit:cover; border:2px solid #00a884;" alt="Nela">
+      <div style="font-size:17px; font-weight:700; color:#111b21;">Nela (Next Level Asisten)</div>
+      <div style="font-size:12.5px; color:#00a884; font-weight:600;">● Akun Resmi Layanan Pelanggan &amp; Mitra 24 Jam</div>
+      <div style="background:#ffffff; border-radius:10px; padding:11px; font-size:13px; color:#54656f; text-align:left; width:100%; line-height:1.5;">
+        Melayani informasi tarif ongkir, perhitungan fee jastip, cara memesan, pendaftaran mitra driver baru, hingga panduan teknis aplikasi. Kirimkan foto, <i>screenshot</i>, atau rekam layar kapan saja untuk dipandu langsung.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DOUBLE_CHECK_SVG = `<svg class="wa-ticks" viewBox="0 0 18 11" fill="none"><path d="M1 5.8L4.2 9L11.2 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.2 5.8L9.4 9L16.4 2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+let chatHistory = [];
+let pendingAttachments = [];
+let pendingPreviewHtml = '';
+
+function jamWa() {
+  const d = new Date();
+  return String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+}
+
+function setStatusHeader(isTyping) {
+  const el = document.getElementById('headerStatus');
+  if (isTyping) {
+    el.textContent = 'sedang mengetik...';
+    el.classList.add('typing');
+  } else {
+    el.textContent = 'online';
+    el.classList.remove('typing');
+  }
+}
+
+/* FORMAT MARKDOWN JADI HTML RAPI ALA WHATSAPP */
+function formatWhatsAppText(raw) {
+  let text = String(raw || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Link URL
+  text = text.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank">$1</a>');
+  // Bold **teks**
+  text = text.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+  // Italic *teks*
+  text = text.replace(/(^|[\s(])\*([^*\n]+?)\*(?=[\s).,!?]|$)/g, '$1<i>$2</i>');
+  // Inline code `teks`
+  text = text.replace(/`([^`\n]+)`/g, '<code style="background:#f0f2f5;padding:1px 4px;border-radius:4px;font-size:12.5px;">$1</code>');
+
+  const lines = text.split('\n');
+  let html = '';
+  let inUl = false;
+  let inOl = false;
+
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    const ulMatch = trimmed.match(/^[-*•]\s+(.*)$/);
+    const olMatch = trimmed.match(/^(\d+)[.)]\s+(.*)$/);
+
+    if (ulMatch) {
+      if (inOl) { html += '</ol>'; inOl = false; }
+      if (!inUl) { html += '<ul>'; inUl = true; }
+      html += `<li>${ulMatch[1]}</li>`;
+    } else if (olMatch) {
+      if (inUl) { html += '</ul>'; inUl = false; }
+      if (!inOl) { html += '<ol>'; inOl = true; }
+      html += `<li>${olMatch[2]}</li>`;
+    } else {
+      if (inUl) { html += '</ul>'; inUl = false; }
+      if (inOl) { html += '</ol>'; inOl = false; }
+      if (trimmed === '') {
+        html += '<div style="height:6px;"></div>';
+      } else {
+        html += `<p>${trimmed}</p>`;
+      }
+    }
+  });
+  if (inUl) html += '</ul>';
+  if (inOl) html += '</ol>';
+  return html;
+}
+
+function appendBubble(side, contentHtml, isRawHtml = false) {
+  const body = document.getElementById('chatBody');
+  const div = document.createElement('div');
+  div.className = 'wa-msg ' + side;
+  const formatted = isRawHtml ? contentHtml : formatWhatsAppText(contentHtml);
+  const ticks = side === 'out' ? DOUBLE_CHECK_SVG : '';
+  div.innerHTML = `${formatted}<span class="wa-meta">${jamWa()} ${ticks}</span>`;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+}
+
+function tampilkanTypingBubble() {
+  hapusTypingBubble();
+  const body = document.getElementById('chatBody');
+  const div = document.createElement('div');
+  div.className = 'wa-msg in';
+  div.id = 'waTypingBubble';
+  div.innerHTML = `<div class="typing-dots"><span></span><span></span><span></span></div>`;
+  body.appendChild(div);
+  body.scrollTop = body.scrollHeight;
+}
+
+function hapusTypingBubble() {
+  const el = document.getElementById('waTypingBubble');
+  if (el) el.remove();
+}
+
+/* SAPAAN AWAL PERSIS SEPERTI PERMINTAAN */
+function resetChatWa() {
+  chatHistory = [];
+  const body = document.getElementById('chatBody');
+  body.innerHTML = `<div class="wa-date-pill">HARI INI</div>`;
+  const sapaan = `Halo, ada yang bisa saya bantu? Silakan tanyakan saja seputar jasa Next Level. Kalau ada menu aplikasi yang bikin bingung, boleh kirim screenshot atau rekam layarnya juga ya!`;
+  appendBubble('in', sapaan);
+  chatHistory.push({ role: 'assistant', content: sapaan });
+  setStatusHeader(false);
+}
+
+/* PROSES LAMPIRAN FOTO / SCREENSHOT / VIDEO REKAM LAYAR */
+function pilihLampiran(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  const box = document.getElementById('attachPreview');
+  const thumb = document.getElementById('attachThumb');
+  const nameEl = document.getElementById('attachName');
+
+  box.classList.add('show');
+  nameEl.textContent = 'Menyiapkan ' + file.name + '...';
+  pendingAttachments = [];
+  pendingPreviewHtml = '';
+
+  if (file.type.startsWith('image/')) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const maxW = 900;
+        let w = img.width, h = img.height;
+        if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const jpegUrl = canvas.toDataURL('image/jpeg', 0.75);
+        pendingAttachments = [{ mimeType: 'image/jpeg', base64Data: jpegUrl.split(',')[1] }];
+        pendingPreviewHtml = `<img class="chat-media" src="${jpegUrl}" alt="Foto">`;
+        thumb.src = jpegUrl;
+        nameEl.textContent = '📸 ' + file.name;
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  } else if (file.type.startsWith('video/')) {
+    const videoIcon = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="10" fill="%2300a884"/><polygon points="26,20 46,32 26,44" fill="white"/></svg>';
+    thumb.src = videoIcon;
+
+    // Jika ukuran video <= 3 MB kirim langsung; jika lebih besar ekstrak 5 cuplikan frame agar anti-error Vercel
+    if (file.size <= 3 * 1024 * 1024) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        pendingAttachments = [{ mimeType: file.type || 'video/mp4', base64Data: e.target.result.split(',')[1] }];
+        pendingPreviewHtml = `<div class="wa-video-badge">🎥 Video: ${file.name}</div>`;
+        nameEl.textContent = '🎥 ' + file.name;
+      };
+      reader.readAsDataURL(file);
+    } else {
+      ekstrakFrameVideo(file, (frames) => {
+        pendingAttachments = frames;
+        pendingPreviewHtml = `<div class="wa-video-badge">🎥 Rekam layar: ${file.name} (${frames.length} cuplikan layar)</div>`;
+        nameEl.textContent = `🎥 ${file.name} (${frames.length} cuplikan siap)`;
+      });
+    }
+  }
+}
+
+function ekstrakFrameVideo(file, callback) {
+  const url = URL.createObjectURL(file);
+  const video = document.createElement('video');
+  video.src = url;
+  video.muted = true;
+  video.playsInline = true;
+
+  video.onloadedmetadata = async () => {
+    const dur = Math.max(1, video.duration || 5);
+    const totalFrames = 5;
+    const frames = [];
+    const canvas = document.createElement('canvas');
+    const maxW = 640;
+    const scale = Math.min(1, maxW / (video.videoWidth || 640));
+    canvas.width = Math.round((video.videoWidth || 640) * scale);
+    canvas.height = Math.round((video.videoHeight || 1136) * scale);
+    const ctx = canvas.getContext('2d');
+
+    for (let i = 0; i < totalFrames; i++) {
+      const targetTime = Math.min(dur - 0.1, (dur / (totalFrames + 1)) * (i + 1));
+      await new Promise(resolve => {
+        video.currentTime = targetTime;
+        video.onseeked = () => {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.68);
+          frames.push({ mimeType: 'image/jpeg', base64Data: dataUrl.split(',')[1] });
+          resolve();
+        };
+      });
+    }
+    URL.revokeObjectURL(url);
+    callback(frames);
+  };
+}
+
+function hapusLampiran() {
+  pendingAttachments = [];
+  pendingPreviewHtml = '';
+  document.getElementById('fileInput').value = '';
+  document.getElementById('attachPreview').classList.remove('show');
+}
+
+/* CADANGAN LOKAL OTOMATIS JIKA API SEDANG LIMIT / OFFLINE */
+function jawabanCadanganLokal(q) {
+  const t = q.toLowerCase();
+  const kmM = t.match(/(\d+(?:[.,]\d+)?)\s*(km|kilo)/);
+  if (kmM) {
+    const km = parseFloat(kmM[1].replace(',', '.'));
+    const ongkir = km <= 3.3 ? 10000 : Math.round(km * 3000);
+    return `Untuk jarak **${km} km**, ongkos kirimnya **Rp ${ongkir.toLocaleString('id-ID')}** (ditambah Biaya Admin Rp 1.000, di luar belanja barang/parkir ya Kak).\n\nKalau mau hitung lengkap sama barang jastip, Kakak bisa ketuk ikon **🧮** di pojok kanan atas ya!`;
+  }
+  if (/daftar|syarat|sim|stnk|motor/.test(t)) {
+    return `Untuk daftar jadi mitra driver **NEXT LEVEL** sangat mudah Kak:\n1. Buka https://nextlevel-driver-rzsb.vercel.app/ lewat Chrome/Safari lalu pilih **Tambahkan ke Layar Utama**.\n2. Klik **Daftar Sekarang**, rekam **video wajah berkedip 2x**, dan foto **KTP asli**.\n3. Simpan **NRP & password** yang muncul.\n\nSIM/STNK sangat dianjurkan tapi tidak wajib saat daftar, dan tahun motor bebas asal layak jalan. Kalau bingung di salah satu langkahnya, kirim saja *screenshot* layarnya ke sini ya Kak!`;
+  }
+  return `Maaf Kak, koneksi ke asisten pintar sedang padat sebentar. Kakak bisa langsung cek estimasi tarif lewat ikon **🧮 Kalkulator** di pojok kanan atas, atau hubungi Admin Utama di **0889-7132-0461** ya Kak 🙏`;
+}
+
+/* KIRIM PESAN KE NELA (GEMINI AI) */
+async function kirimPesan(preset = null) {
+  const inp = document.getElementById('msgInput');
+  const text = (preset !== null ? preset : inp.value).trim();
+  if (!text && pendingAttachments.length === 0) return;
+  if (preset === null) inp.value = '';
+
+  const safeUserText = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const outHtml = `${pendingPreviewHtml}${safeUserText ? `<p>${safeUserText}</p>` : ''}`;
+  appendBubble('out', outHtml, true);
+
+  const msgObj = { role: 'user', content: text || 'Tolong bantu jelaskan dari lampiran ini Kak.' };
+  if (pendingAttachments.length > 0) {
+    msgObj.attachments = [...pendingAttachments];
+  }
+  chatHistory.push(msgObj);
+  hapusLampiran();
+
+  // Ubah status header jadi "sedang mengetik..."
+  setStatusHeader(true);
+  tampilkanTypingBubble();
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chatHistory.slice(-12) })
+    });
+
+    hapusTypingBubble();
+    setStatusHeader(false);
+
+    if (!res.ok) {
+      const fallback = jawabanCadanganLokal(text);
+      appendBubble('in', fallback);
+      chatHistory.push({ role: 'assistant', content: fallback });
+      return;
+    }
+
+    const data = await res.json();
+    const reply = data.reply || jawabanCadanganLokal(text);
+    appendBubble('in', reply);
+    chatHistory.push({ role: 'assistant', content: reply });
+  } catch (e) {
+    hapusTypingBubble();
+    setStatusHeader(false);
+    const fallback = jawabanCadanganLokal(text);
+    appendBubble('in', fallback);
+    chatHistory.push({ role: 'assistant', content: fallback });
+  }
+}
+
+/* MENU & MODAL */
+function toggleMenuWa(e) {
+  e.stopPropagation();
+  document.getElementById('waMenuDropdown').classList.toggle('open');
+}
+function tutupMenuWa() {
+  document.getElementById('waMenuDropdown').classList.remove('open');
+}
+document.addEventListener('click', tutupMenuWa);
+
+function bukaKalkulator() {
+  document.getElementById('calcModal').classList.add('open');
+  hitungSemua();
+}
+function tutupKalkulator() {
+  document.getElementById('calcModal').classList.remove('open');
+}
+function bukaProfilNela() {
+  document.getElementById('profilModal').classList.add('open');
+}
+function tutupProfilNela() {
+  document.getElementById('profilModal').classList.remove('open');
+}
+
+/* KALKULATOR TARIF RESMI NEXT LEVEL */
+let prodSeq = 0;
+function pRp(v) { return parseInt(String(v || '0').replace(/\D/g, '') || '0', 10) || 0; }
+function pKm(v) { return parseFloat(String(v || '0').replace(',', '.').replace(/[^0-9.]/g, '')) || 0; }
+function fmtRp(n) { return 'Rp ' + (Math.round(n) || 0).toLocaleString('id-ID'); }
+
+function tambahProdukCalc(hDef = 15000, qDef = 2) {
+  prodSeq++;
+  const id = prodSeq;
+  const wrap = document.getElementById('listProdukCalc');
+  const div = document.createElement('div');
+  div.className = 'item-card';
+  div.id = 'pitem-' + id;
+  div.innerHTML = `
+    <div class="item-card-head">
+      <span>Produk #${id}</span>
+      ${id > 1 ? `<span style="color:#dc2626;cursor:pointer;" onclick="document.getElementById('pitem-${id}').remove();hitungSemua();">Hapus</span>` : ''}
+    </div>
+    <div class="grid-2">
+      <div class="inp-group"><label>Harga Satuan (Rp)</label><input type="text" inputmode="numeric" class="inHarga" value="${hDef}" oninput="hitungSemua()"></div>
+      <div class="inp-group"><label>Jumlah (Pcs)</label><input type="text" inputmode="numeric" class="inQty" value="${qDef}" oninput="hitungSemua()"></div>
+    </div>`;
+  wrap.appendChild(div);
+  hitungSemua();
+}
+
+function hitungSemua() {
+  const jenis = document.getElementById('cJenis').value;
+  document.getElementById('areaJastip').style.display = jenis === 'jastip' ? 'block' : 'none';
+  document.getElementById('areaAmbil').style.display = jenis === 'ambil' ? 'block' : 'none';
+
+  const km = pKm(document.getElementById('cKm').value);
+  const ongkir = km <= 3.3 ? 10000 : Math.round(km * 3000);
+  const mnt = pRp(document.getElementById('cTunggu').value);
+  const tunggu = mnt < 30 ? 0 : Math.floor((mnt * 5000 / 30) / 100) * 100;
+  const parkir = pRp(document.getElementById('cParkir').value);
+  const sepakat = pRp(document.getElementById('cSepakat').value);
+
+  let barang = 0, fee = 0, kompF = 0;
+
+  if (jenis === 'jastip') {
+    const grups = {};
+    document.querySelectorAll('#listProdukCalc .item-card').forEach(el => {
+      const h = pRp(el.querySelector('.inHarga').value);
+      const q = pRp(el.querySelector('.inQty').value);
+      if (h > 0 && q > 0) {
+        barang += h * q;
+        const g = h < 3000 ? 'A' : h <= 4999 ? 'B' : h <= 9999 ? 'C' : h <= 49999 ? 'D' : h <= 99999 ? 'N1' : 'N2';
+        if (!grups[g]) grups[g] = { totH: 0, totQ: 0, items: [] };
+        grups[g].totH += h * q;
+        grups[g].totQ += q;
+        grups[g].items.push({ h, q });
+      }
+    });
+    Object.keys(grups).forEach(g => {
+      const d = grups[g];
+      if (g === 'A') fee += d.totH < 5000 ? d.totQ * 500 : d.totH <= 9999 ? 2000 : d.totQ * 200;
+      else if (g === 'B') fee += (d.totQ === 1 && d.totH < 5000) ? 1000 : d.totH <= 9999 ? 2000 : d.totQ * 500;
+      else if (g === 'C') fee += d.totQ === 1 ? 2000 : d.totQ * 1000;
+      else if (g === 'D') fee += d.totQ <= 10 ? d.totQ * 2000 : d.totQ * 1000;
+      else if (g === 'N1') fee += d.totQ * 4000;
+      else d.items.forEach(it => { fee += Math.max(1, Math.floor(it.h / 100000)) * 8000 * it.q; });
+      kompF += d.items.length;
+    });
+  } else if (jenis === 'ambil') {
+    const titik = Math.max(1, pRp(document.getElementById('cTitik').value) || 1);
+    fee = titik * 2000;
+    kompF = titik;
+  }
+
+  if (tunggu > 0) kompF++;
+  if (sepakat > 0) kompF++;
+
+  const adminA = 1000;
+  const total = barang + fee + ongkir + tunggu + parkir + sepakat + adminA;
+
+  const fRp = kompF <= 0 ? 0 : kompF <= 4 ? 200 : kompF <= 9 ? 500 : kompF <= 14 ? 700 : kompF <= 19 ? 1200 : 1200 + Math.floor((kompF - 15) / 5) * 300;
+  const setorT = 2000 + adminA + fRp;
+  const bersihReg = Math.max(0, (ongkir + fee + tunggu + sepakat) - 2000 - fRp);
+  const bersihLead = Math.max(0, (ongkir + fee + tunggu + sepakat) - 2000);
+
+  document.getElementById('rBarang').textContent = fmtRp(barang);
+  document.getElementById('rFee').textContent = fmtRp(fee);
+  document.getElementById('rOngkir').textContent = `${fmtRp(ongkir)} (${km || 0} km)`;
+  document.getElementById('rTunggu').textContent = fmtRp(tunggu);
+  document.getElementById('rLain').textContent = fmtRp(parkir + sepakat);
+  document.getElementById('rTotal').textContent = fmtRp(total);
+  document.getElementById('rDriverSplit').innerHTML = `
+    <b>Simulasi Driver:</b><br>
+    • Setoran Wajib (K+A+F): <b>${fmtRp(setorT)}</b><br>
+    • Bersih Reguler: <b>${fmtRp(bersihReg)}</b> | Lead Driver: <b>${fmtRp(bersihLead)}</b>
+  `;
+}
+
+/* INISIALISASI */
+tambahProdukCalc(15000, 2);
+resetChatWa();
+</script>
+</body>
+</html>
