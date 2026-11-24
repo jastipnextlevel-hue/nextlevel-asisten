@@ -251,10 +251,10 @@
     }
 
     .bubble {
-      max-width: 87%;
+      max-width: 89%;
       padding: 8px 11px 6px 11px;
       font-size: 13.8px;
-      line-height: 1.46;
+      line-height: 1.48;
       color: var(--text-main);
       word-break: break-word;
       box-shadow: 0 1px 1px rgba(11, 20, 26, 0.14);
@@ -275,6 +275,15 @@
       align-self: flex-end;
       background: var(--wa-out);
       border-radius: 11px 11px 0 11px;
+    }
+    .chat-quote {
+      border-left: 3.5px solid #475569;
+      background: #f8fafc;
+      padding: 6px 9px;
+      margin: 6px 0;
+      border-radius: 0 8px 8px 0;
+      font-weight: 700;
+      color: #0f172a;
     }
     .bubble-owner-tag {
       display: inline-block;
@@ -347,6 +356,19 @@
       text-align: center;
       display: block;
     }
+    .btn-retry-chat {
+      margin-top: 8px;
+      width: 100%;
+      background: #f1f5f9;
+      color: #0f172a;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 9px;
+      padding: 7px 10px;
+      font-size: 11.5px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .btn-retry-chat:active { background: #e2e8f0; }
 
     .typing-bubble {
       align-self: flex-start;
@@ -947,6 +969,7 @@ const STORAGE_HISTORY_KEY = 'nela_chat_history_v2';
 const STORAGE_SESSION_KEY = 'nela_session_id_v2';
 const STORAGE_SEEN_REPLIES_KEY = 'nela_seen_replies_v2';
 const MAX_VIDEO_BYTES = 3 * 1024 * 1024;
+const CHAT_TIMEOUT_MS = 35000;
 
 let chatHistory = [];
 let sessionId = localStorage.getItem(STORAGE_SESSION_KEY) || '';
@@ -960,9 +983,11 @@ try {
   seenReplyIds = JSON.parse(localStorage.getItem(STORAGE_SEEN_REPLIES_KEY) || '{}') || {};
 } catch (e) { seenReplyIds = {}; }
 
-let pendingMedia = null; // { dataUrl, base64, mime, isVideo, name }
+let pendingMedia = null;
+let lastFailedPayload = null;
 let isSending = false;
 let ownerSessionPass = sessionStorage.getItem('nela_owner_pass') || '';
+let ownerPendingMap = {};
 let deferredPwaPrompt = null;
 
 function getJam() {
@@ -979,16 +1004,54 @@ function escapeHtml(str) {
 }
 
 function formatChatHtml(text) {
-  let html = escapeHtml(text || '');
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
-  html = html.replace(/\*([^*\n]+)\*/g, '<b>$1</b>');
-  html = html.replace(/(https?:\/\/[^\s<]+)/gi, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
-  html = html.replace(/\b(0881-0236-96881|0889-7132-0461)\b/g, (num) => {
-    const waNum = '62' + num.replace(/\D/g, '').slice(1);
-    return `<a href="https://wa.me/${waNum}" target="_blank" rel="noopener noreferrer">${num}</a>`;
+  let clean = String(text || '');
+  // Bersihkan format link Markdown & tanda kurung sebelum di-render agar klik link tidak pernah 404
+  clean = clean.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, url) => {
+    const cLabel = label.trim().replace(/\/+$/, '');
+    const cUrl = url.trim();
+    return cLabel === cUrl.replace(/\/+$/, '') ? cUrl : `${label.trim()}: ${cUrl}`;
   });
-  html = html.replace(/\n/g, '<br>');
-  return html;
+  clean = clean.replace(/\((https?:\/\/[^\s)]+)\)/g, '$1');
+  clean = clean.replace(/^\s*-{3,}\s*$/gm, '');
+
+  const lines = clean.split('\n');
+  const outLines = [];
+  let quoteBuf = [];
+
+  function flushQuote() {
+    if (quoteBuf.length > 0) {
+      outLines.push(`<div class="chat-quote">${quoteBuf.join('<br>')}</div>`);
+      quoteBuf = [];
+    }
+  }
+
+  function formatInline(lineStr) {
+    let h = escapeHtml(lineStr);
+    h = h.replace(/^\s*[-*]\s+/, '• ');
+    h = h.replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+    h = h.replace(/\*([^*\n]+)\*/g, '<b>$1</b>');
+    h = h.replace(/(https?:\/\/[^\s<>"']+?)([.,;:!?)\]}]*)(?=\s|$|<)/gi, (m, url, trail) => {
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>${trail}`;
+    });
+    h = h.replace(/\b(0881-0236-96881|0889-7132-0461)\b/g, (num) => {
+      const waNum = '62' + num.replace(/\D/g, '').slice(1);
+      return `<a href="https://wa.me/${waNum}" target="_blank" rel="noopener noreferrer">${num}</a>`;
+    });
+    return h;
+  }
+
+  for (const rawLine of lines) {
+    const qMatch = rawLine.match(/^\s*>\s?(.*)$/);
+    if (qMatch) {
+      quoteBuf.push(formatInline(qMatch[1]));
+    } else {
+      flushQuote();
+      outLines.push(formatInline(rawLine));
+    }
+  }
+  flushQuote();
+
+  return outLines.join('<br>').replace(/(<div class="chat-quote">[\s\S]*?<\/div>)<br>/g, '$1');
 }
 
 function showToast(msg) {
@@ -1160,6 +1223,7 @@ function saveChatHistory() {
 function clearChatHistory() {
   if (!confirm('Bersihkan riwayat chat dengan Nela di layar ini?')) return;
   chatHistory = [getWelcomeMessage()];
+  lastFailedPayload = null;
   saveChatHistory();
   renderAllMessages();
   showToast('🗑️ Riwayat chat dibersihkan');
@@ -1172,48 +1236,55 @@ function scrollChatToBottom() {
   }
 }
 
+function buildBubbleHtml(m, idx) {
+  const isUser = m.role === 'user';
+  let mediaHtml = '';
+  if (m.mediaDataUrl) {
+    if (m.isVideo) {
+      mediaHtml = `<div class="bubble-media"><video src="${m.mediaDataUrl}" controls playsinline></video></div>`;
+    } else {
+      mediaHtml = `<div class="bubble-media"><img src="${m.mediaDataUrl}" alt="Lampiran" style="cursor:pointer;" onclick="bukaFullImage(this.src)"></div>`;
+    }
+  } else if (m.mediaPreviewLabel) {
+    mediaHtml = `<div style="font-size:11.5px; color:#475569; font-weight:700; margin-bottom:4px;">📎 ${escapeHtml(m.mediaPreviewLabel)}</div>`;
+  }
+
+  const ownerBadge = m.isOwnerReply
+    ? '<div class="bubble-owner-tag">✨ Jawaban Resmi Tim NEXT LEVEL</div>'
+    : '';
+
+  const escalateBtns = m.escalated
+    ? `<div class="escalate-actions">
+         <button type="button" class="btn-escalate-install" onclick="openInstallModal()">📲 Instal / Simpan ke Layar Depan HP</button>
+         <a class="btn-escalate-wa" href="https://wa.me/62881023696881" target="_blank" rel="noopener noreferrer">💬 Hubungi WhatsApp 0881-0236-96881</a>
+       </div>`
+    : '';
+
+  const retryBtn = (m.canRetry && idx === chatHistory.length - 1 && lastFailedPayload)
+    ? `<button type="button" class="btn-retry-chat" onclick="retryLastMessage()">🔄 Coba Kirim Ulang</button>`
+    : '';
+
+  const checkHtml = isUser ? '<span class="check-blue">✓✓</span>' : '';
+
+  return `
+    <div class="bubble ${isUser ? 'bubble-out' : 'bubble-in'}" ${m._live ? 'id="liveStreamBubble"' : ''}>
+      ${ownerBadge}
+      ${mediaHtml}
+      <div ${m._live ? 'id="liveStreamText"' : ''}>${formatChatHtml(m.text || '')}</div>
+      ${escalateBtns}
+      ${retryBtn}
+      <div class="bubble-meta">
+        <span>${escapeHtml(m.time || '')}</span>
+        ${checkHtml}
+      </div>
+    </div>
+  `;
+}
+
 function renderAllMessages() {
   const body = document.getElementById('chatBody');
   if (!body) return;
-  body.innerHTML = chatHistory.map((m) => {
-    const isUser = m.role === 'user';
-    let mediaHtml = '';
-    if (m.mediaDataUrl) {
-      if (m.isVideo) {
-        mediaHtml = `<div class="bubble-media"><video src="${m.mediaDataUrl}" controls playsinline></video></div>`;
-      } else {
-        mediaHtml = `<div class="bubble-media"><img src="${m.mediaDataUrl}" alt="Lampiran" style="cursor:pointer;" onclick="bukaFullImage(this.src)"></div>`;
-      }
-    } else if (m.mediaPreviewLabel) {
-      mediaHtml = `<div style="font-size:11.5px; color:#475569; font-weight:700; margin-bottom:4px;">📎 ${escapeHtml(m.mediaPreviewLabel)}</div>`;
-    }
-
-    const ownerBadge = m.isOwnerReply
-      ? '<div class="bubble-owner-tag">✨ Jawaban Resmi Tim NEXT LEVEL</div>'
-      : '';
-
-    const escalateBtns = m.escalated
-      ? `<div class="escalate-actions">
-           <button type="button" class="btn-escalate-install" onclick="openInstallModal()">📲 Instal / Simpan ke Layar Depan HP</button>
-           <a class="btn-escalate-wa" href="https://wa.me/62881023696881" target="_blank" rel="noopener noreferrer">💬 Hubungi WhatsApp 0881-0236-96881</a>
-         </div>`
-      : '';
-
-    const checkHtml = isUser ? '<span class="check-blue">✓✓</span>' : '';
-
-    return `
-      <div class="bubble ${isUser ? 'bubble-out' : 'bubble-in'}">
-        ${ownerBadge}
-        ${mediaHtml}
-        <div>${formatChatHtml(m.text || '')}</div>
-        ${escalateBtns}
-        <div class="bubble-meta">
-          <span>${escapeHtml(m.time || '')}</span>
-          ${checkHtml}
-        </div>
-      </div>
-    `;
-  }).join('');
+  body.innerHTML = chatHistory.map((m, idx) => buildBubbleHtml(m, idx)).join('');
   scrollChatToBottom();
 }
 
@@ -1236,18 +1307,25 @@ function showTypingIndicator(show) {
   }
 }
 
-/* ==================== LAMPIRAN GAMBAR / VIDEO ==================== */
-function compressImage(file, maxW = 960, quality = 0.72) {
+/* ==================== KOMPRESI GAMBAR CERDAS (TAJAM & RINGAN DI 4G) ==================== */
+function compressImage(file, maxW = 960, maxH = 1500, quality = 0.76) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const img = new Image();
       img.onload = () => {
+        let w = img.width;
+        let h = img.height;
+        const scale = Math.min(1, maxW / w, maxH / h);
+        w = Math.max(1, Math.round(w * scale));
+        h = Math.max(1, Math.round(h * scale));
         const canvas = document.createElement('canvas');
-        let w = img.width, h = img.height;
-        if (w > maxW) { h = Math.round((h * maxW) / w); w = maxW; }
-        canvas.width = w; canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
         resolve(canvas.toDataURL('image/jpeg', quality));
       };
       img.onerror = reject;
@@ -1324,6 +1402,163 @@ function sendQuickPrompt(text) {
   sendMessage();
 }
 
+async function requestNelaReply(payloadMessages) {
+  isSending = true;
+  document.getElementById('btnSend').disabled = true;
+  setHeaderStatus(true);
+  showTypingIndicator(true);
+
+  const controller = new AbortController();
+  let timeoutId = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
+
+  const resetStreamTimeout = () => {
+    clearTimeout(timeoutId);
+    timeoutId = setTimeout(() => controller.abort(), CHAT_TIMEOUT_MS);
+  };
+
+  let liveMsgObj = null;
+
+  try {
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        action: 'chat',
+        stream: true,
+        sessionId,
+        messages: payloadMessages
+      })
+    });
+
+    const contentType = (resp.headers.get('content-type') || '').toLowerCase();
+
+    // ==================== MODE STREAMING LANGSUNG (SEPERTI META AI) ====================
+    if (resp.ok && contentType.includes('text/event-stream') && resp.body && resp.body.getReader) {
+      showTypingIndicator(false);
+      liveMsgObj = {
+        role: 'model',
+        text: '',
+        time: getJam(),
+        escalated: false,
+        _live: true
+      };
+      chatHistory.push(liveMsgObj);
+      renderAllMessages();
+
+      const liveTextEl = document.getElementById('liveStreamText');
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let sseBuf = '';
+      let gotAnyContent = false;
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        resetStreamTimeout();
+
+        sseBuf += decoder.decode(value, { stream: true });
+        const lines = sseBuf.split('\n');
+        sseBuf = lines.pop() || '';
+
+        for (const rawLine of lines) {
+          const line = rawLine.trim();
+          if (!line.startsWith('data:')) continue;
+          const jsonPart = line.slice(5).trim();
+          if (!jsonPart || jsonPart === '[DONE]') continue;
+
+          try {
+            const evt = JSON.parse(jsonPart);
+            if (evt.delta) {
+              gotAnyContent = true;
+              liveMsgObj.text += evt.delta;
+              if (liveTextEl) liveTextEl.innerHTML = formatChatHtml(liveMsgObj.text);
+              scrollChatToBottom();
+            }
+            if (evt.reply) {
+              gotAnyContent = true;
+              liveMsgObj.text = evt.reply;
+              if (evt.escalated) liveMsgObj.escalated = true;
+            }
+            if (evt.error && !gotAnyContent) {
+              liveMsgObj.text = evt.error;
+              liveMsgObj.canRetry = true;
+            }
+          } catch (parseErr) {}
+        }
+      }
+
+      clearTimeout(timeoutId);
+      delete liveMsgObj._live;
+
+      if (!liveMsgObj.text.trim()) {
+        liveMsgObj.text = 'Maaf Kak, server Nela sedang agak padat 🙏 Coba ketuk Kirim Ulang ya Kak 😊';
+        liveMsgObj.canRetry = true;
+        lastFailedPayload = payloadMessages;
+      } else if (!liveMsgObj.canRetry) {
+        lastFailedPayload = null;
+      }
+
+      saveChatHistory();
+      renderAllMessages();
+      return;
+    }
+
+    // ==================== FALLBACK MODE JSON STANDAR ====================
+    const data = await resp.json().catch(() => ({}));
+    clearTimeout(timeoutId);
+    showTypingIndicator(false);
+
+    if (!resp.ok || !data.reply) {
+      lastFailedPayload = payloadMessages;
+      chatHistory.push({
+        role: 'model',
+        text: data.error || 'Maaf Kak, sinyal lagi agak padat 🙏 Coba ketuk Kirim Ulang sebentar lagi ya 😊',
+        time: getJam(),
+        canRetry: true
+      });
+    } else {
+      lastFailedPayload = null;
+      chatHistory.push({
+        role: 'model',
+        text: data.reply,
+        time: getJam(),
+        escalated: !!data.escalated
+      });
+    }
+    saveChatHistory();
+    renderAllMessages();
+  } catch (err) {
+    clearTimeout(timeoutId);
+    showTypingIndicator(false);
+    if (liveMsgObj) {
+      delete liveMsgObj._live;
+      if (!liveMsgObj.text.trim()) {
+        chatHistory.pop();
+        liveMsgObj = null;
+      }
+    }
+    if (!liveMsgObj) {
+      lastFailedPayload = payloadMessages;
+      const errMsg = err && err.name === 'AbortError'
+        ? 'Maaf Kak, sinyal lagi melambat sehingga koneksi terputus 🙏 Coba ketuk tombol Kirim Ulang di bawah ya Kak 😊'
+        : 'Maaf Kak, koneksi internet sepertinya sedang terganggu 🙏 Coba periksa sinyal lalu ketuk Kirim Ulang ya Kak 😊';
+      chatHistory.push({
+        role: 'model',
+        text: errMsg,
+        time: getJam(),
+        canRetry: true
+      });
+    }
+    saveChatHistory();
+    renderAllMessages();
+  } finally {
+    isSending = false;
+    document.getElementById('btnSend').disabled = false;
+    setHeaderStatus(false);
+  }
+}
+
 async function sendMessage() {
   if (isSending) return;
   const inp = document.getElementById('chatInput');
@@ -1341,6 +1576,7 @@ async function sendMessage() {
   };
 
   chatHistory.push(userMsg);
+  lastFailedPayload = null;
   saveChatHistory();
   renderAllMessages();
 
@@ -1348,63 +1584,28 @@ async function sendMessage() {
   inp.style.height = 'auto';
   clearAttachment();
 
-  isSending = true;
-  document.getElementById('btnSend').disabled = true;
-  setHeaderStatus(true);
-  showTypingIndicator(true);
-
-  try {
-    const payloadMessages = chatHistory.slice(-12).map((m, idx, arr) => {
-      const obj = { role: m.role, text: m.text };
-      if (idx === arr.length - 1 && mediaCopy) {
-        obj.mediaData = mediaCopy.base64;
-        obj.mediaMime = mediaCopy.mime;
-      }
-      return obj;
-    });
-
-    const resp = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action: 'chat',
-        sessionId,
-        messages: payloadMessages
-      })
-    });
-    const data = await resp.json();
-
-    showTypingIndicator(false);
-    if (!resp.ok || !data.reply) {
-      chatHistory.push({
-        role: 'model',
-        text: data.error || 'Maaf Kak, sinyal lagi agak padat 🙏 Coba kirim ulang pesan Kakak sebentar lagi ya 😊',
-        time: getJam()
-      });
-    } else {
-      chatHistory.push({
-        role: 'model',
-        text: data.reply,
-        time: getJam(),
-        escalated: !!data.escalated
-      });
+  // Kirim hanya 8 pesan teks terakhir + media HANYA pada pesan terakhir agar super ringan di 4G
+  const cleanHistory = chatHistory.filter((m) => !m.canRetry).slice(-8);
+  const payloadMessages = cleanHistory.map((m, idx, arr) => {
+    const obj = { role: m.role, text: m.text };
+    if (idx === arr.length - 1 && mediaCopy) {
+      obj.mediaData = mediaCopy.base64;
+      obj.mediaMime = mediaCopy.mime;
     }
-    saveChatHistory();
+    return obj;
+  });
+
+  await requestNelaReply(payloadMessages);
+}
+
+async function retryLastMessage() {
+  if (isSending || !lastFailedPayload) return;
+  const payload = lastFailedPayload;
+  if (chatHistory.length > 0 && chatHistory[chatHistory.length - 1].canRetry) {
+    chatHistory.pop();
     renderAllMessages();
-  } catch (err) {
-    showTypingIndicator(false);
-    chatHistory.push({
-      role: 'model',
-      text: 'Maaf Kak, koneksi internet sepertinya sedang terganggu 🙏 Coba periksa sinyal lalu kirim lagi ya Kak 😊',
-      time: getJam()
-    });
-    saveChatHistory();
-    renderAllMessages();
-  } finally {
-    isSending = false;
-    document.getElementById('btnSend').disabled = false;
-    setHeaderStatus(false);
   }
+  await requestNelaReply(payload);
 }
 
 /* ==================== LISTENER REAL-TIME BALASAN OWNER KE PENANYA ==================== */
@@ -1549,6 +1750,9 @@ function renderOwnerDashboard(data) {
   }
 
   const allQ = Array.isArray(data.pendingQuestions) ? data.pendingQuestions : [];
+  ownerPendingMap = {};
+  allQ.forEach((q) => { if (q && q.id) ownerPendingMap[q.id] = q; });
+
   const waitingQ = allQ.filter((q) => q.status !== 'answered');
   const answeredQ = allQ.filter((q) => q.status === 'answered').slice(0, 10);
 
@@ -1576,7 +1780,7 @@ function renderOwnerDashboard(data) {
             <input type="checkbox" id="sopChk_${safeId}" checked> Simpan otomatis sebagai SOP baru Nela
           </label>
           <div style="display:flex; gap:6px;">
-            <button type="button" class="btn-primary" style="flex:1; padding:9px;" onclick="submitOwnerAnswer('${safeId}', ${JSON.stringify(q.question || '')}, '${escapeHtml(q.sessionId || '')}')">📤 Kirim &amp; Jadikan SOP</button>
+            <button type="button" class="btn-primary" style="flex:1; padding:9px;" onclick="submitOwnerAnswer('${safeId}')">📤 Kirim &amp; Jadikan SOP</button>
             <button type="button" class="btn-danger-sm" onclick="deletePendingQuestion('${safeId}')">🗑️</button>
           </div>
         </div>
@@ -1659,7 +1863,8 @@ async function testOwnerNtfy() {
   }
 }
 
-async function submitOwnerAnswer(qId, questionText, targetSessionId) {
+async function submitOwnerAnswer(qId) {
+  const qObj = ownerPendingMap[qId] || {};
   const ansEl = document.getElementById('ans_' + qId);
   const chkEl = document.getElementById('sopChk_' + qId);
   const answer = (ansEl ? ansEl.value : '').trim();
@@ -1676,9 +1881,9 @@ async function submitOwnerAnswer(qId, questionText, targetSessionId) {
         action: 'owner_answer_question',
         password: ownerSessionPass,
         questionId: qId,
-        question: questionText,
+        question: qObj.question || '',
         answer,
-        sessionId: targetSessionId,
+        sessionId: qObj.sessionId || '',
         saveAsSop: chkEl ? chkEl.checked : true
       })
     });
