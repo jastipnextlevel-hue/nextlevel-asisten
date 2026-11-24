@@ -6,12 +6,12 @@ const DEFAULT_NTFY_TOPIC = 'nextlevel-nela-owner';
 
 let cachedOwnerData = { promptText: '', learnedSops: null, fetchedAt: 0 };
 let cachedDiscoveredModels = { list: [], fetchedAt: 0 };
-let lastWorkingModel = '';
+let lastTextModel = '';
+let lastVisionModel = '';
 const CACHE_TTL_MS = 30000;
 
 function cleanReplyText(text) {
   let out = String(text || '');
-  // Ubah format Markdown [label](url) menjadi teks bersih + URL mentah agar klik link tidak 404
   out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, url) => {
     const cleanLabel = label.trim().replace(/\/+$/, '');
     const cleanUrl = url.trim();
@@ -20,11 +20,8 @@ function cleanReplyText(text) {
     }
     return `${label.trim()}: ${cleanUrl}`;
   });
-  // Hilangkan tanda kurung yang membungkus link langsung: (https://...) -> https://...
   out = out.replace(/\((https?:\/\/[^\s)]+)\)/g, '$1');
-  // Hilangkan tanda baca menempel di ujung link (titik/koma) agar tidak ikut masuk URL
   out = out.replace(/(https?:\/\/[^\s<>"')]+?)([.,;:!?]+)(?=\s|$)/g, '$1');
-  // Bersihkan garis pemisah "---" yang berdiri sendiri
   out = out.replace(/^\s*-{3,}\s*$/gm, '');
   return out.replace(/\n{3,}/g, '\n\n').trim();
 }
@@ -147,13 +144,21 @@ function buildSystemInstruction(ownerPromptText, learnedSopsMap) {
 
   return `Kamu adalah "Nela (Next Level Asisten)", asisten virtual resmi NEXT LEVEL (Jastip, Ojek Panggilan, Ambil Pesanan, Jasa Khusus 24 Jam) untuk customer dan driver.
 
-GAYA JAWAB WAJIB (CEPAT, RINGKAS, AKURAT, SOPAN & PROAKTIF):
-- Jawab LANGSUNG KE INTINYA, padat, rapi pakai poin singkat agar enak dibaca di layar HP. Jangan pakai garis pemisah "---".
-- ATURAN LINK WAJIB: Saat menulis alamat website/link, TULIS LINK MENTAH BIASA SAJA (contoh: https://nextlevel-driver-rzsb.vercel.app/). DILARANG KERAS memakai format Markdown [teks](link) dan DILARANG mengurung link dengan tanda (...) atau menempelkan tanda titik/koma di akhir link.
+GAYA JAWAB WAJIB (TERPERINCI, KONKRET, TERSTRUKTUR, SOPAN & PROAKTIF):
+- Jawab dengan JELAS, RINCI, dan langsung bisa dipraktikkan memakai penomoran rapi (1, 2, 3) dan sub-poin yang enak dibaca di layar HP. Jangan pakai garis pemisah "---".
 - Gunakan bahasa Indonesia yang santai, ramah, sopan, dan hangat. Sisipkan emoji 😊 dan 🙏 secara natural di setiap balasan.
-- Jika customer bertanya soal harga beli/jastip suatu makanan atau barang TANPA menyebutkan harga pasti atau jaraknya (contoh: "Berapa harga beli bubur?" atau "Beli baju di Cimahi berapa biayanya?"), JANGAN bilang tidak tahu! Langsung jelaskan komponen biayanya, sebutkan perkiraan fee sesuai kisaran harga barang tersebut, berikan 1-2 contoh hitungan singkat yang jelas (harga barang + fee + ongkir + admin Rp 1.000), lalu tanyakan harga pasti, jumlah pcs, dan jaraknya agar bisa dihitungkan total pasnya.
+- ATURAN LINK WAJIB: Tulis link mentah biasa saja (contoh: https://nextlevel-driver-rzsb.vercel.app/). DILARANG KERAS memakai format Markdown [teks](link) dan DILARANG mengurung link dengan (...) atau menempelkan titik/koma di ujung link.
+- ATURAN WAJIB AUDIT SCREENSHOT / FOTO / VIDEO (SUPER TELITI SEPERTI ASISTEN PREMIUM):
+  Saat penanya mengirim screenshot aplikasi (form Jastip, Ojek, Buat Bill, Keuangan, atau Pendaftaran):
+  1) Identifikasi nama halaman/form yang terbuka dan beri apresiasi singkat bagian mana yang SUDAH BENAR diisi agar penanya tenang.
+  2) Baca dan SEBUTKAN PERSIS isi teks/angka/koordinat GPS yang terlihat di setiap kolom pada screenshot dari atas ke bawah!
+     * Jika koordinat GPS sudah centang hijau, pastikan sudah benar & jangan diubah lagi.
+     * Jika ada kolom yang masih tulisan bawaan (misalnya "Warung 1") atau terisi huruf acak/typo (misalnya "Hg"), TUNJUK LANGSUNG kolom tersebut, jelaskan kenapa harus diganti, lalu berikan CONTOH PENULISAN NYATA (misalnya: "Warung Bubur Ayam Mang Asep", "Bubur Ayam 1 porsi - pedas", "12000 tanpa titik/Rp").
+  3) Jelaskan juga kolom lanjutan yang berada di bawah layar (saat di-scroll ke bawah) hingga langkah cek ulang sebelum klik Buat Bill / Kirim.
+  4) Jika di bagian atas screenshot ada spanduk peringatan merah (seperti "AMBIL ORDERAN TERKUNCI!!" atau "Sinyal terputus"), BAHAS DI BAGIAN AKHIR dengan format kutipan (diawali tanda "> ") dan langkah klik yang presisi (jangan salah sebut antara kunci AMBIL ORDERAN dan kunci BUAT BILL!).
+  5) Tutup dengan tawaran bantuan aktif (misalnya menanyakan nama warung + nama barang + harga + jumlahnya agar Nela bantu susunkan teks isiannya).
+- Jika customer bertanya soal harga beli/jastip makanan atau barang TANPA menyebutkan harga pasti atau jaraknya, JANGAN bilang tidak tahu! Jelaskan komponen biayanya, perkiraan grup harga & fee produknya, berikan 2-3 contoh hitungan lengkap (harga barang + fee + ongkir + admin Rp 1.000), lalu tanyakan harga pasti, jumlah pcs, dan jaraknya.
 - DILARANG menyebut fitur "kalkulator" atau menyuruh customer menghitung sendiri. Hitungkan langsung dengan akurat.
-- Jika ada screenshot/foto/video dari aplikasi, bantu baca dan jelaskan solusinya dengan jelas.
 - DILARANG membocorkan rahasia internal owner (PIN/password panel, rumus token OTP, database).
 
 1. LAYANAN & WILAYAH STANDBY (24 JAM):
@@ -165,7 +170,7 @@ GAYA JAWAB WAJIB (CEPAT, RINGKAS, AKURAT, SOPAN & PROAKTIF):
 - Aplikasi Customer: https://nextlevel-customer.vercel.app/
 - Aplikasi Driver: https://nextlevel-driver-rzsb.vercel.app/
 - Panduan Customer: https://referensi-customer.vercel.app
-- WA Admin Utama / Barang Berharga / Emas / Tarik Tunai / Lapor Bill / SOS Driver: 0889-7132-0461
+- WA Admin Utama / Barang Berharga / Emas / Tarik Tunai / Lapor Bill & Keuangan / SOS Driver: 0889-7132-0461
 - WA CS / Keluhan / Antre Order > 2 Menit: 0881-0236-96881
 
 3. TARIF ONGKIR, UANG TUNGGU, ADMIN & FEE PRODUK:
@@ -183,77 +188,100 @@ GAYA JAWAB WAJIB (CEPAT, RINGKAS, AKURAT, SOPAN & PROAKTIF):
   * Grup NEW2 (satuan >= Rp 100.000): kelipatan Rp 8.000 per blok Rp 100.000/pcs (100rb–199rb = Rp 8.000/pcs; 200rb–299rb = Rp 16.000/pcs, dst).
 - Total Bayar = Harga Barang + Fee Produk + Ongkir + Uang Tunggu (jika ada) + Fee Kesepakatan (jika ada) + Parkir (jika ada) + Biaya Admin Rp 1.000.
 
-4. RINGKASAN APLIKASI CUSTOMER:
+4. PANDUAN RINCI APLIKASI CUSTOMER:
 - NRP Pelanggan tercetak otomatis saat order pertama (bisa pulihkan lewat "Pulihkan ID Pelanggan").
 - Cara pesan: Pilih 1 dari 5 layanan (Jastip, Ojek, Ambil Lunas, Jasa Khusus, atau Tanya-Tanya Dulu) -> pilih wilayah standby -> tandai lokasi di peta -> pilih bayar (COD/Transfer).
 - Jika radar cari driver > 2 menit belum diambil, muncul tombol WA CS 0881-0236-96881. Bisa telepon suara, VN maks 60 dtk, kirim foto/video maks 3 MB, share lokasi, dan instal ke layar depan (PWA).
 
-5. RINGKASAN APLIKASI DRIVER:
+5. PANDUAN RINCI APLIKASI DRIVER:
 - Daftar: Setujui sumpah 4x -> rekam wajah berkedip 2x + foto KTP asli (OCR) -> buat password -> dapat NRP permanen.
 - Sistem Order: Siapa cepat dia dapat (admin hanya memantau, tidak membagi order). Filter "Area Saya" / "Semua Area". Wajib setujui 2 pop-up SOP saat ambil order.
-- Buat Bill wajib titik Google Maps (GPS / Peta / Link), ada fitur Jalan Pintas, Sekali Jalan/PP, Oper Order, dan tombol SOS ke WA Admin 0889-7132-0461.
-- Setoran (LOT): K = Rp 2.000, A = Rp 1.000, F = sesuai poin (1-4 = 200; 5-9 = 500; 10-14 = 700; 15-19 = 1.200; +300 tiap +5 poin). Total T = K+A+F. Jika T mencapai Rp 50.000, menu buat bill terkunci sampai setor & input 4-digit OTP (salah 3x beku 30 menit). Wajib kirim rekap keuangan harian ke WA Admin.
+- CARA MENGISI FORM JASTIP / BUAT BILL (URUTAN KOLOM DI LAYAR):
+  1) Update Status Cepat ke Konsumen (opsional): Ketuk OTW Toko, Sedang Antre, atau OTW Antar.
+  2) 1. Titik Lokasi Customer (Tujuan Antar) — WAJIB: Isi lewat "Kunci GPS Saya", "Pilih di Peta", atau tempel link Google Maps dari customer. Jika sudah muncul centang hijau [GPS], titik antar sudah terkunci aman.
+  3) Lokasi 1 — Nama Warung / Toko & GPS Toko: Ganti tulisan default "Warung 1" dengan nama warung/toko aslinya (contoh: Warung Bubur Ayam Mang Asep) lalu pastikan titik GPS/Maps toko sudah terkunci centang hijau agar jarak & ongkir terhitung otomatis.
+  4) Nama / Deskripsi Produk, Harga Satuan & Jumlah (Qty):
+     * Isi 1 jenis produk per baris secara jelas (contoh: Bubur Ayam 1 porsi - pedas; jangan digabung dengan item lain seperti Es Teh, pisahkan di baris berbeda).
+     * Harga Satuan: isi angka harga asli dari warung tanpa titik dan tanpa tulisan Rp (contoh: 12000).
+     * Jumlah / Qty: isi jumlah pcs/porsi (contoh: 1).
+     * Jika beli lebih dari 1 jenis barang, ketuk "+ Tambah Produk"; jika beda warung, ketuk "+ Tambah Lokasi" / "+ Tambah Jasa Lain".
+  5) Cek Ulang, Jalan Pintas & Biaya Tambahan: Jika rute peta memutar padahal ada jalan pintas motor lebih dekat, turunkan KM lewat fitur "Jalan Pintas". Isi uang tunggu (jika >= 30 menit), parkir riil, atau fee kesepakatan jika ada. Setelah semua benar, klik tombol Buat Bill / Kirim. Setelah jadi, muncul pop-up pembagian uang (Setoran Wajib K+A+F, Modal Putar, Pendapatan Bersih).
+- CARA MEMBUKA "AMBIL ORDERAN TERKUNCI!!" (LAPORAN KEUANGAN HARIAN KE ADMIN):
+  * Penyebab: Driver belum mengirim laporan keuangan hari kemarin kepada Admin. (Catatan: ini mengunci akses AMBIL ORDERAN baru, BUKAN mengunci Buat Bill).
+  * Langkah membuka kuncinya:
+    1) Klik tombol "KEMBALI" (jika sedang berada di dalam form).
+    2) Buka menu "Keuangan Driver".
+    3) Periksa rekap keuangan harian lalu klik tombol "Kirim Laporan Admin".
+    4) Aplikasi otomatis mengarahkan ke WhatsApp Admin Utama (0889-7132-0461) dengan isi laporan sudah terketik otomatis — tinggal klik KIRIM di WA.
+    5) Setelah terkirim, kunci Ambil Orderan otomatis terbuka kembali.
+- BUKU KAS, SETORAN (LOT) & KUNCI BUAT BILL:
+  * K (Kas) = Rp 2.000, A (Admin) = Rp 1.000, F (Fee Jasa: 1-4 poin = Rp 200; 5-9 = Rp 500; 10-14 = Rp 700; 15-19 = Rp 1.200; +Rp 300 tiap +5 poin). Total Setoran Wajib T = K + A + F.
+  * Jika T mencapai Rp 50.000, 4 menu BUAT BILL terkunci sampai driver transfer setoran ke Owner lalu memasukkan 4-Digit Token OTP di menu Keuangan Driver (salah 3x dibekukan 30 menit).
+  * Tersedia juga fitur Oper Order dan tombol 🚨 SOS ke WA Admin 0889-7132-0461.
 - Topik NTFY Driver: nextlevel-app-2026 (Utama), nextlevel-area-<daerah>, nextlevel-drv-<NRP>.
 
 6. ATURAN ANTI-NGARANG (ESKALASI OWNER):
 - HANYA jika pertanyaan benar-benar di luar semua data di atas dan butuh keputusan khusus Owner (promo tanggal tertentu, kerja sama merchant, kasus khusus), balas HANYA dengan kode persis:
 [TIDAK_TAHU]
-- JANGAN pernah balas [TIDAK_TAHU] untuk pertanyaan tarif/estimasi belanja makanan/barang, sapaan, atau info yang sudah ada di atas.${learnedSection}${ownerUpdateSection}`;
+- JANGAN pernah balas [TIDAK_TAHU] untuk pertanyaan tarif/estimasi belanja, panduan form/screenshot/laporan driver, sapaan, atau info yang sudah ada di atas.${learnedSection}${ownerUpdateSection}`;
 }
 
-async function discoverFlashModels(apiKey) {
+async function discoverFlashModels(apiKey, preferFullFlash = false) {
   const now = Date.now();
+  let list = [];
   if (cachedDiscoveredModels.list.length > 0 && (now - cachedDiscoveredModels.fetchedAt) < 1800000) {
-    return cachedDiscoveredModels.list;
+    list = [...cachedDiscoveredModels.list];
+  } else {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+      const res = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=100`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timer);
+      if (!res.ok) return [];
+      const data = await res.json().catch(() => ({}));
+      const models = Array.isArray(data.models) ? data.models : [];
+
+      list = models
+        .filter((m) => {
+          const methods = m.supportedGenerationMethods || [];
+          if (!methods.includes('generateContent')) return false;
+          const name = String(m.name || '').replace(/^models\//, '').toLowerCase();
+          if (!name.includes('flash')) return false;
+          if (/(tts|audio|image|live|embedding|vision|robotics|computer|customtools|preview-tts)/i.test(name)) {
+            return false;
+          }
+          return true;
+        })
+        .map((m) => String(m.name || '').replace(/^models\//, ''));
+
+      cachedDiscoveredModels = { list, fetchedAt: Date.now() };
+    } catch (e) {
+      clearTimeout(timer);
+      return [];
+    }
   }
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 4000);
-  try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=100`,
-      { signal: controller.signal }
-    );
-    clearTimeout(timer);
-    if (!res.ok) return [];
-    const data = await res.json().catch(() => ({}));
-    const models = Array.isArray(data.models) ? data.models : [];
 
-    const filtered = models
-      .filter((m) => {
-        const methods = m.supportedGenerationMethods || [];
-        if (!methods.includes('generateContent')) return false;
-        const name = String(m.name || '').replace(/^models\//, '').toLowerCase();
-        if (!name.includes('flash')) return false;
-        if (/(tts|audio|image|live|embedding|vision|robotics|computer|customtools|preview-tts)/i.test(name)) {
-          return false;
-        }
-        return true;
-      })
-      .map((m) => String(m.name || '').replace(/^models\//, ''));
-
-    filtered.sort((a, b) => {
-      const aLite = /lite/i.test(a) ? 0 : 1;
-      const bLite = /lite/i.test(b) ? 0 : 1;
-      if (aLite !== bLite) return aLite - bLite;
-      return b.localeCompare(a, undefined, { numeric: true });
-    });
-
-    cachedDiscoveredModels = { list: filtered, fetchedAt: Date.now() };
-    return filtered;
-  } catch (e) {
-    clearTimeout(timer);
-    return [];
-  }
+  return [...list].sort((a, b) => {
+    const aLite = /lite/i.test(a) ? 1 : 0;
+    const bLite = /lite/i.test(b) ? 1 : 0;
+    if (aLite !== bLite) {
+      return preferFullFlash ? aLite - bLite : bLite - aLite;
+    }
+    return b.localeCompare(a, undefined, { numeric: true });
+  });
 }
 
-async function callGemini(apiKey, model, systemInstruction, contents, useThinkingZero = false, timeoutMs = 15000) {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+async function openGeminiStream(apiKey, model, systemInstruction, contents, useThinkingZero = false, connectTimeoutMs = 15000) {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${encodeURIComponent(apiKey)}`;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const timer = setTimeout(() => controller.abort(), connectTimeoutMs);
 
   const generationConfig = {
     temperature: 0.4,
-    maxOutputTokens: 1000
+    maxOutputTokens: 2048
   };
   if (useThinkingZero) {
     generationConfig.thinkingConfig = { thinkingBudget: 0 };
@@ -272,41 +300,71 @@ async function callGemini(apiKey, model, systemInstruction, contents, useThinkin
     });
     clearTimeout(timer);
 
-    const gData = await gRes.json().catch(() => ({}));
-    if (gRes.ok && gData.candidates && gData.candidates[0]?.content?.parts) {
-      const text = gData.candidates[0].content.parts
-        .filter((p) => !p.thought && p.text)
-        .map((p) => p.text)
-        .join('\n')
-        .trim();
-      if (text) return { ok: true, text };
-      return { ok: false, status: gRes.status, error: 'Respons kosong dari model' };
+    if (!gRes.ok || !gRes.body) {
+      const errData = await gRes.json().catch(() => ({}));
+      return {
+        ok: false,
+        status: gRes.status,
+        error: errData.error?.message || `HTTP ${gRes.status}`
+      };
     }
-    return {
-      ok: false,
-      status: gRes.status,
-      error: gData.error?.message || `HTTP ${gRes.status}`
-    };
+
+    return { ok: true, response: gRes };
   } catch (err) {
     clearTimeout(timer);
     return {
       ok: false,
       status: 0,
-      error: err.name === 'AbortError' ? `Timeout ${Math.round(timeoutMs / 1000)} detik` : err.message
+      error: err.name === 'AbortError' ? 'Timeout koneksi' : err.message
     };
   }
 }
 
-async function tryModel(apiKey, model, systemInstruction, contents, timeoutMs = 15000) {
+async function tryOpenStream(apiKey, model, systemInstruction, contents, connectTimeoutMs = 15000) {
   const isLite = /lite/i.test(model);
   if (isLite) {
-    return await callGemini(apiKey, model, systemInstruction, contents, false, timeoutMs);
+    return await openGeminiStream(apiKey, model, systemInstruction, contents, false, connectTimeoutMs);
   }
-  let result = await callGemini(apiKey, model, systemInstruction, contents, true, timeoutMs);
-  if (!result.ok && result.status === 400) {
-    result = await callGemini(apiKey, model, systemInstruction, contents, false, timeoutMs);
+  let resObj = await openGeminiStream(apiKey, model, systemInstruction, contents, true, connectTimeoutMs);
+  if (!resObj.ok && resObj.status === 400) {
+    resObj = await openGeminiStream(apiKey, model, systemInstruction, contents, false, connectTimeoutMs);
   }
-  return result;
+  return resObj;
+}
+
+async function handleEscalation(messages, sessionId) {
+  const lastUserMsg = [...messages].reverse().find((m) => m.role !== 'model') || {};
+  const userQuestionText = String(lastUserMsg.text || '').trim() ||
+    (lastUserMsg.mediaMime ? '[Penanya mengirim lampiran foto/video tanpa teks]' : '(Pertanyaan kosong)');
+  const qId = `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+  const cleanSessionId = String(sessionId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+
+  const configData = await fbGet('nela_assistant/config', 1800);
+  const ntfyTopic = (configData && configData.ntfyTopic) || DEFAULT_NTFY_TOPIC;
+
+  await Promise.all([
+    fbPut(`nela_assistant/pending_questions/${qId}`, {
+      id: qId,
+      sessionId: cleanSessionId,
+      question: userQuestionText,
+      hasMedia: !!lastUserMsg.mediaMime,
+      status: 'pending',
+      createdAt: Date.now()
+    }).catch(() => null),
+    sendNtfyNotification(
+      ntfyTopic,
+      'NELA: Pertanyaan Belum Terjawab',
+      `Ada penanya yang belum bisa dijawab Nela:\n"${userQuestionText.slice(0, 180)}"\n\nBuka Panel Owner Nela untuk menjawabnya sekarang!`,
+      'urgent'
+    )
+  ]);
+
+  const fallbackReply =
+    'Maaf Kak, untuk hal tersebut saya belum mempunyai informasi terkait hal tersebut 🙏 Saya akan menjawabnya secepat mungkin setelah menghubungi seseorang yang di bidangnya ya 😊\n\n' +
+    'Tetap di halaman ini ya Kak, atau sambil menunggu Kakak bisa instal/simpan aplikasi ini ke layar depan HP biar nanti bisa langsung lihat jawabannya di sini 😊\n\n' +
+    'Kalau butuh jawaban cepat, Kakak juga bisa langsung hubungi WhatsApp kami di *0881-0236-96881* ya Kak 🙏😊';
+
+  return { fallbackReply, qId };
 }
 
 export default async function handler(req, res) {
@@ -456,14 +514,14 @@ export default async function handler(req, res) {
     }
   }
 
-  // ==================== CHAT UTAMA NELA ====================
+  // ==================== CHAT UTAMA NELA (STREAMING REAL-TIME) ====================
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'GEMINI_API_KEY belum dipasang di Vercel.' });
   }
 
   try {
-    const { messages, sessionId } = body;
+    const { messages, sessionId, stream: wantStream } = body;
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: 'Format pesan tidak valid.' });
     }
@@ -471,10 +529,15 @@ export default async function handler(req, res) {
     const { promptText, learnedSops } = await getOwnerDataCached();
     const systemInstruction = buildSystemInstruction(promptText, learnedSops);
 
-    const contents = messages.slice(-6).map((m) => {
+    const recentMessages = messages.slice(-6);
+    const lastIdx = recentMessages.length - 1;
+    const lastMsg = recentMessages[lastIdx] || {};
+    const hasMediaInLastMsg = !!(lastMsg.mediaData && lastMsg.mediaMime);
+
+    const contents = recentMessages.map((m, idx) => {
       const parts = [];
       if (m.text) parts.push({ text: String(m.text) });
-      if (m.mediaData && m.mediaMime) {
+      if (idx === lastIdx && m.mediaData && m.mediaMime) {
         parts.push({
           inlineData: {
             mimeType: m.mediaMime,
@@ -489,83 +552,139 @@ export default async function handler(req, res) {
       };
     });
 
+    const defaultOrder = hasMediaInLastMsg
+      ? ['gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite']
+      : ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+
     const primaryModels = [];
-    if (lastWorkingModel) primaryModels.push(lastWorkingModel);
-    for (const m of ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-flash-latest']) {
+    const remembered = hasMediaInLastMsg ? lastVisionModel : lastTextModel;
+    if (remembered) primaryModels.push(remembered);
+    for (const m of defaultOrder) {
       if (!primaryModels.includes(m)) primaryModels.push(m);
     }
 
     const tried = new Set();
-    let replyText = '';
+    let streamRes = null;
+    let activeModel = '';
 
     for (let i = 0; i < primaryModels.length; i++) {
       const model = primaryModels[i];
       tried.add(model);
-      const timeoutMs = i === 0 ? 15000 : 12000;
-      const result = await tryModel(apiKey, model, systemInstruction, contents, timeoutMs);
-      if (result.ok) {
-        replyText = result.text;
-        lastWorkingModel = model;
+      const timeoutMs = hasMediaInLastMsg ? (i === 0 ? 18000 : 14000) : (i === 0 ? 12000 : 10000);
+      const attempt = await tryOpenStream(apiKey, model, systemInstruction, contents, timeoutMs);
+      if (attempt.ok) {
+        streamRes = attempt.response;
+        activeModel = model;
         break;
       }
-      if (model === lastWorkingModel) lastWorkingModel = '';
+      if (hasMediaInLastMsg && model === lastVisionModel) lastVisionModel = '';
+      if (!hasMediaInLastMsg && model === lastTextModel) lastTextModel = '';
     }
 
-    if (!replyText) {
-      const discovered = await discoverFlashModels(apiKey);
+    if (!streamRes) {
+      const discovered = await discoverFlashModels(apiKey, hasMediaInLastMsg);
       let extraTries = 0;
       for (const model of discovered) {
         if (tried.has(model) || extraTries >= 2) continue;
         tried.add(model);
         extraTries++;
-        const result = await tryModel(apiKey, model, systemInstruction, contents, 12000);
-        if (result.ok) {
-          replyText = result.text;
-          lastWorkingModel = model;
+        const attempt = await tryOpenStream(apiKey, model, systemInstruction, contents, 12000);
+        if (attempt.ok) {
+          streamRes = attempt.response;
+          activeModel = model;
           break;
         }
       }
     }
 
-    if (!replyText) {
+    if (!streamRes) {
       return res.status(502).json({
-        error: 'Maaf Kak, server Nela sedang agak padat sementara 🙏 Coba kirim ulang beberapa detik lagi ya Kak 😊'
+        error: 'Maaf Kak, server Nela sedang agak padat sementara 🙏 Coba ketuk Kirim Ulang beberapa detik lagi ya Kak 😊'
       });
     }
 
-    // Deteksi pertanyaan yang belum bisa dijawab -> simpan ke Panel Owner & kirim NTFY
-    if (/\[\s*TIDAK_TAHU\s*\]/i.test(replyText)) {
-      const lastUserMsg = [...messages].reverse().find((m) => m.role !== 'model') || {};
-      const userQuestionText = String(lastUserMsg.text || '').trim() ||
-        (lastUserMsg.mediaMime ? '[Penanya mengirim lampiran foto/video tanpa teks]' : '(Pertanyaan kosong)');
-      const qId = `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-      const cleanSessionId = String(sessionId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+    if (hasMediaInLastMsg) lastVisionModel = activeModel;
+    else lastTextModel = activeModel;
 
-      const configData = await fbGet('nela_assistant/config', 1800);
-      const ntfyTopic = (configData && configData.ntfyTopic) || DEFAULT_NTFY_TOPIC;
+    // Baca stream dari Gemini & alirkan langsung ke layar chat HP
+    const reader = streamRes.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let sseBuf = '';
+    let fullText = '';
+    let pendingBuffer = '';
+    let streamStarted = false;
 
-      await Promise.all([
-        fbPut(`nela_assistant/pending_questions/${qId}`, {
-          id: qId,
-          sessionId: cleanSessionId,
-          question: userQuestionText,
-          hasMedia: !!lastUserMsg.mediaMime,
-          status: 'pending',
-          createdAt: Date.now()
-        }).catch(() => null),
-        sendNtfyNotification(
-          ntfyTopic,
-          'NELA: Pertanyaan Belum Terjawab',
-          `Ada penanya yang belum bisa dijawab Nela:\n"${userQuestionText.slice(0, 180)}"\n\nBuka Panel Owner Nela untuk menjawabnya sekarang!`,
-          'urgent'
-        )
-      ]);
+    const startClientSse = () => {
+      if (streamStarted) return;
+      streamStarted = true;
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      if (typeof res.flushHeaders === 'function') res.flushHeaders();
+    };
 
-      const fallbackReply =
-        'Maaf Kak, untuk hal tersebut saya belum mempunyai informasi terkait hal tersebut 🙏 Saya akan menjawabnya secepat mungkin setelah menghubungi seseorang yang di bidangnya ya 😊\n\n' +
-        'Tetap di halaman ini ya Kak, atau sambil menunggu Kakak bisa instal/simpan aplikasi ini ke layar depan HP biar nanti bisa langsung lihat jawabannya di sini 😊\n\n' +
-        'Kalau butuh jawaban cepat, Kakak juga bisa langsung hubungi WhatsApp kami di *0881-0236-96881* ya Kak 🙏😊';
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      sseBuf += decoder.decode(value, { stream: true });
+      const lines = sseBuf.split('\n');
+      sseBuf = lines.pop() || '';
 
+      for (const rawLine of lines) {
+        const line = rawLine.trim();
+        if (!line.startsWith('data:')) continue;
+        const jsonStr = line.slice(5).trim();
+        if (!jsonStr || jsonStr === '[DONE]') continue;
+
+        let parsed;
+        try { parsed = JSON.parse(jsonStr); } catch (e) { continue; }
+        const parts = parsed?.candidates?.[0]?.content?.parts;
+        if (!Array.isArray(parts)) continue;
+
+        const piece = parts
+          .filter((p) => !p.thought && p.text)
+          .map((p) => p.text)
+          .join('');
+        if (!piece) continue;
+
+        fullText += piece;
+
+        if (wantStream) {
+          if (!streamStarted) {
+            pendingBuffer += piece;
+            const trimmed = pendingBuffer.trimStart();
+            // Tahan sementara hanya jika diawali "[" agar tag [TIDAK_TAHU] tidak bocor ke layar
+            const mightBeUnknownTag = trimmed.length === 0 || (trimmed.startsWith('[') && trimmed.length < 18);
+            if (!mightBeUnknownTag) {
+              startClientSse();
+              res.write(`data: ${JSON.stringify({ delta: pendingBuffer })}\n\n`);
+              pendingBuffer = '';
+            }
+          } else {
+            res.write(`data: ${JSON.stringify({ delta: piece })}\n\n`);
+          }
+        }
+      }
+    }
+
+    if (!fullText.trim()) {
+      if (streamStarted) {
+        res.write(`data: ${JSON.stringify({ error: 'Maaf Kak, respons Nela terputus 🙏 Coba ketuk Kirim Ulang ya Kak 😊' })}\n\n`);
+        return res.end();
+      }
+      return res.status(502).json({
+        error: 'Maaf Kak, server Nela sedang agak padat 🙏 Coba ketuk Kirim Ulang ya Kak 😊'
+      });
+    }
+
+    // Jika [TIDAK_TAHU] -> simpan ke Panel Owner & bunyikan NTFY
+    if (/\[\s*TIDAK_TAHU\s*\]/i.test(fullText)) {
+      const { fallbackReply, qId } = await handleEscalation(messages, sessionId);
+      if (streamStarted) {
+        res.write(`data: ${JSON.stringify({ done: true, reply: fallbackReply, escalated: true, questionId: qId })}\n\n`);
+        return res.end();
+      }
       return res.status(200).json({
         reply: fallbackReply,
         escalated: true,
@@ -573,11 +692,25 @@ export default async function handler(req, res) {
       });
     }
 
+    const finalClean = cleanReplyText(fullText);
+
+    if (wantStream && streamStarted) {
+      res.write(`data: ${JSON.stringify({ done: true, reply: finalClean, escalated: false })}\n\n`);
+      return res.end();
+    }
+
     return res.status(200).json({
-      reply: cleanReplyText(replyText),
+      reply: finalClean,
       escalated: false
     });
   } catch (err) {
+    if (res.headersSent) {
+      try {
+        res.write(`data: ${JSON.stringify({ error: 'Maaf Kak, koneksi ke server Nela terputus 🙏 Coba kirim lagi ya Kak 😊' })}\n\n`);
+        res.end();
+      } catch (e) {}
+      return;
+    }
     return res.status(500).json({
       error: 'Maaf Kak, koneksi ke server Nela sedang terganggu 🙏 Coba kirim lagi ya Kak 😊'
     });
