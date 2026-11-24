@@ -1,4 +1,4 @@
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 const FIREBASE_DB_URL = 'https://nextlevel-chat-default-rtdb.asia-southeast1.firebasedatabase.app';
 const NELA_APP_URL = 'https://nextlevel-asisten.vercel.app/';
@@ -127,10 +127,10 @@ function buildSystemInstruction(ownerPromptText, learnedSopsMap) {
 
   return `Kamu adalah "Nela (Next Level Asisten)", asisten virtual resmi NEXT LEVEL (Jastip, Ojek Panggilan, Ambil Pesanan, Jasa Khusus 24 Jam) untuk customer dan driver.
 
-GAYA JAWAB WAJIB (CEPAT, RAPI, AKURAT, SOPAN & PROAKTIF):
-- Jawab LANGSUNG KE INTINYA, rapi pakai poin singkat agar enak dibaca di layar HP.
+GAYA JAWAB WAJIB (CEPAT, RINGKAS, AKURAT, SOPAN & PROAKTIF):
+- Jawab LANGSUNG KE INTINYA, padat, rapi pakai poin singkat agar enak dibaca di layar HP. Jangan pakai garis pemisah "---".
 - Gunakan bahasa Indonesia yang santai, ramah, sopan, dan hangat. Sisipkan emoji 😊 dan 🙏 secara natural di setiap balasan.
-- Jika customer bertanya soal harga beli/jastip suatu makanan atau barang TANPA menyebutkan harga pasti atau jaraknya (contoh: "Berapa harga beli bubur?"), JANGAN bilang tidak tahu! Langsung sebutkan perkiraan grup harganya di lapangan, jelaskan tarif fee produknya, berikan 2-3 contoh hitungan singkat + contoh total lengkap (harga barang + fee + ongkir minimal Rp 10.000 + admin Rp 1.000), lalu tanyakan balik harga pasti, jumlah porsi/pcs, dan jaraknya agar bisa dihitungkan total pasnya.
+- Jika customer bertanya soal harga beli/jastip suatu makanan atau barang TANPA menyebutkan harga pasti atau jaraknya (contoh: "Berapa harga beli bubur?" atau "Beli baju di Cimahi berapa biayanya?"), JANGAN bilang tidak tahu! Langsung jelaskan komponen biayanya, sebutkan perkiraan fee sesuai kisaran harga barang tersebut, berikan 1-2 contoh hitungan singkat yang jelas (harga barang + fee + ongkir + admin Rp 1.000), lalu tanyakan harga pasti, jumlah pcs, dan jaraknya agar bisa dihitungkan total pasnya.
 - DILARANG menyebut fitur "kalkulator" atau menyuruh customer menghitung sendiri. Hitungkan langsung dengan akurat.
 - Jika ada screenshot/foto/video dari aplikasi, bantu baca dan jelaskan solusinya dengan jelas.
 - DILARANG membocorkan rahasia internal owner (PIN/password panel, rumus token OTP, database).
@@ -210,7 +210,6 @@ async function discoverFlashModels(apiKey) {
       })
       .map((m) => String(m.name || '').replace(/^models\//, ''));
 
-    // Prioritaskan flash-lite dulu (paling cepat & jarang padat), lalu versi terbaru
     filtered.sort((a, b) => {
       const aLite = /lite/i.test(a) ? 0 : 1;
       const bLite = /lite/i.test(b) ? 0 : 1;
@@ -226,16 +225,16 @@ async function discoverFlashModels(apiKey) {
   }
 }
 
-async function callGemini(apiKey, model, systemInstruction, contents, disableThinking = true, timeoutMs = 10000) {
+async function callGemini(apiKey, model, systemInstruction, contents, useThinkingZero = false, timeoutMs = 15000) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   const generationConfig = {
     temperature: 0.4,
-    maxOutputTokens: 1500
+    maxOutputTokens: 1000
   };
-  if (disableThinking) {
+  if (useThinkingZero) {
     generationConfig.thinkingConfig = { thinkingBudget: 0 };
   }
 
@@ -277,10 +276,16 @@ async function callGemini(apiKey, model, systemInstruction, contents, disableThi
   }
 }
 
-async function tryModel(apiKey, model, systemInstruction, contents) {
-  let result = await callGemini(apiKey, model, systemInstruction, contents, true, 10000);
-  if (!result.ok && result.status === 400 && /thinking|Unknown name/i.test(result.error || '')) {
-    result = await callGemini(apiKey, model, systemInstruction, contents, false, 10000);
+async function tryModel(apiKey, model, systemInstruction, contents, timeoutMs = 15000) {
+  const isLite = /lite/i.test(model);
+  // Seri Flash-Lite langsung dipanggil tanpa thinkingConfig agar tidak kena error invalid argument
+  if (isLite) {
+    return await callGemini(apiKey, model, systemInstruction, contents, false, timeoutMs);
+  }
+  let result = await callGemini(apiKey, model, systemInstruction, contents, true, timeoutMs);
+  // Jika model non-lite menolak parameter thinkingConfig (HTTP 400 apa pun), langsung ulang tanpa thinkingConfig
+  if (!result.ok && result.status === 400) {
+    result = await callGemini(apiKey, model, systemInstruction, contents, false, timeoutMs);
   }
   return result;
 }
@@ -467,7 +472,7 @@ export default async function handler(req, res) {
 
     const primaryModels = [];
     if (lastWorkingModel) primaryModels.push(lastWorkingModel);
-    for (const m of ['gemini-flash-lite-latest', 'gemini-flash-latest']) {
+    for (const m of ['gemini-flash-lite-latest', 'gemini-3.1-flash-lite', 'gemini-flash-latest']) {
       if (!primaryModels.includes(m)) primaryModels.push(m);
     }
 
@@ -475,26 +480,28 @@ export default async function handler(req, res) {
     const errors = [];
     let replyText = '';
 
-    for (const model of primaryModels) {
+    for (let i = 0; i < primaryModels.length; i++) {
+      const model = primaryModels[i];
       tried.add(model);
-      const result = await tryModel(apiKey, model, systemInstruction, contents);
+      const timeoutMs = i === 0 ? 15000 : 12000;
+      const result = await tryModel(apiKey, model, systemInstruction, contents, timeoutMs);
       if (result.ok) {
         replyText = result.text;
         lastWorkingModel = model;
         break;
       }
+      if (model === lastWorkingModel) lastWorkingModel = '';
       errors.push(`${model}: ${result.error}`);
     }
 
-    // Jika alias utama gagal / padat, otomatis cek daftar model Flash aktif milik API key
     if (!replyText) {
       const discovered = await discoverFlashModels(apiKey);
       let extraTries = 0;
       for (const model of discovered) {
-        if (tried.has(model) || extraTries >= 3) continue;
+        if (tried.has(model) || extraTries >= 2) continue;
         tried.add(model);
         extraTries++;
-        const result = await tryModel(apiKey, model, systemInstruction, contents);
+        const result = await tryModel(apiKey, model, systemInstruction, contents, 12000);
         if (result.ok) {
           replyText = result.text;
           lastWorkingModel = model;
