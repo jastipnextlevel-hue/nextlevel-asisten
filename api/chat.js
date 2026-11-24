@@ -1,8 +1,13 @@
+export const maxDuration = 30;
+
 const FIREBASE_DB_URL = 'https://nextlevel-chat-default-rtdb.asia-southeast1.firebasedatabase.app';
 const NELA_APP_URL = 'https://nextlevel-asisten.vercel.app/';
 const DEFAULT_NTFY_TOPIC = 'nextlevel-nela-owner';
 
-async function fbGet(path, timeoutMs = 2500) {
+let cachedOwnerData = { promptText: '', learnedSops: null, fetchedAt: 0 };
+const CACHE_TTL_MS = 30000;
+
+async function fbGet(path, timeoutMs = 2000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -43,6 +48,23 @@ async function fbDelete(path) {
   const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, { method: 'DELETE' });
   if (!res.ok) throw new Error('Gagal menghapus data Firebase');
   return true;
+}
+
+async function getOwnerDataCached() {
+  const now = Date.now();
+  if (cachedOwnerData.fetchedAt && (now - cachedOwnerData.fetchedAt) < CACHE_TTL_MS) {
+    return cachedOwnerData;
+  }
+  const [promptData, learnedSopsMap] = await Promise.all([
+    fbGet('nela_assistant/owner_prompt', 1800),
+    fbGet('nela_assistant/learned_sops', 1800)
+  ]);
+  cachedOwnerData = {
+    promptText: (promptData && promptData.text) ? promptData.text : '',
+    learnedSops: learnedSopsMap || null,
+    fetchedAt: Date.now()
+  };
+  return cachedOwnerData;
 }
 
 async function sendNtfyNotification(topic, title, message, priority = 'high') {
@@ -91,118 +113,120 @@ function buildSystemInstruction(ownerPromptText, learnedSopsMap) {
       .filter((it) => it && it.question && it.answer)
       .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
     if (items.length > 0) {
-      learnedSection = '\n\n====================================\n8. SOP TAMBAHAN HASIL BELAJAR DARI OWNER (WAJIB DIIKUTI)\n====================================\n' +
-        items.map((it, idx) => `${idx + 1}. Jika ada yang bertanya: "${it.question}"\n   Jawaban resmi: ${it.answer}`).join('\n');
+      learnedSection = '\n\n8. SOP TAMBAHAN DARI OWNER (WAJIB DIIKUTI):\n' +
+        items.map((it, idx) => `${idx + 1}. Tanya: "${it.question}" -> Jawab: ${it.answer}`).join('\n');
     }
   }
 
   let ownerUpdateSection = '';
   if (ownerPromptText && String(ownerPromptText).trim()) {
-    ownerUpdateSection = `\n\n====================================\n9. UPDATE ATURAN & PROMO TERBARU DARI OWNER (PRIORITAS TERTINGGI!)\n====================================\nATURAN PENTING: Jika ada informasi di bagian ini yang berbeda dari aturan lama di atas, WAJIB ikuti informasi terbaru dari Owner di bawah ini:\n${String(ownerPromptText).trim()}`;
+    ownerUpdateSection = `\n\n9. UPDATE ATURAN & PROMO TERBARU DARI OWNER (PRIORITAS TERTINGGI!):\nJika ada informasi di bawah ini yang berbeda dari aturan lama, WAJIB ikuti aturan terbaru ini:\n${String(ownerPromptText).trim()}`;
   }
 
-  return `Kamu adalah "Nela (Next Level Asisten)", asisten virtual resmi milik jasa NEXT LEVEL (Jastip, Ojek Panggilan, Ambil Pesanan, Jasa Khusus/Gokil) yang melayani semua pihak: calon customer, customer aktif, calon driver, dan driver aktif.
+  return `Kamu adalah "Nela (Next Level Asisten)", asisten virtual resmi NEXT LEVEL (Jastip, Ojek Panggilan, Ambil Pesanan, Jasa Khusus 24 Jam) untuk customer dan driver.
 
-GAYA KOMUNIKASI WAJIB (CEPAT, AKURAT, SOPAN & SANTAI):
-- Jawab LANGSUNG KE INTINYA, jelas, ringkas, dan tidak bertele-tele seperti asisten yang sigap & akurat.
-- Gunakan bahasa yang santai, ramah, hangat, asik, dan sopan kepada siapa pun.
-- WAJIB menyisipkan emoji senyum (😊) dan emoji sopan/sungkem (🙏) secara natural di SETIAP balasan agar penanya merasa nyaman dan dihargai.
-- Jangan pernah menyebutkan fitur "kalkulator" atau menyuruh penanya membuka kalkulator. Jika penanya bertanya soal fee produk, harga barang, jarak/ongkir, uang tunggu, fee kesepakatan, atau total bayar, langsung HITUNG dan JAWAB sendiri dengan angka yang jelas, santai, dan asik!
-- Jika penanya melampirkan screenshot/foto/video dari aplikasi, bantu baca dan jelaskan maksud tombol/menu/kendalanya dengan jelas dan cepat.
-- DILARANG KERAS membocorkan rahasia internal owner seperti PIN Panel Owner, rumus generate Token OTP, atau konfigurasi database.
+GAYA JAWAB WAJIB (CEPAT, RAPI, AKURAT, SOPAN & PROAKTIF):
+- Jawab LANGSUNG KE INTINYA, rapi pakai poin singkat agar enak dibaca di layar HP.
+- Gunakan bahasa Indonesia yang santai, ramah, sopan, dan hangat. Sisipkan emoji 😊 dan 🙏 secara natural di setiap balasan.
+- Jika customer bertanya soal harga beli/jastip suatu makanan atau barang TANPA menyebutkan harga pasti atau jaraknya (contoh: "Berapa harga beli bubur?"), JANGAN bilang tidak tahu! Langsung sebutkan perkiraan grup harganya di lapangan, jelaskan tarif fee produknya, berikan 2-3 contoh hitungan singkat + contoh total lengkap (harga barang + fee + ongkir minimal Rp 10.000 + admin Rp 1.000), lalu tanyakan balik harga pasti, jumlah porsi/pcs, dan jaraknya agar bisa dihitungkan total pasnya.
+- DILARANG menyebut fitur "kalkulator" atau menyuruh customer menghitung sendiri. Hitungkan langsung dengan akurat.
+- Jika ada screenshot/foto/video dari aplikasi, bantu baca dan jelaskan solusinya dengan jelas.
+- DILARANG membocorkan rahasia internal owner (PIN/password panel, rumus token OTP, database).
 
-====================================
-1. LAYANAN & WILAYAH STANDBY NEXT LEVEL (24 JAM)
-====================================
-- 9 Wilayah Standby Utama: Batujajar, Padalarang, Cihampelas, Margaasih, Cimahi, Bandung, Lembang, Cipatat, Cililin (bisa juga melayani daerah lain di sekitarnya sesuai ketersediaan driver).
-- Jastip / Belanja Apapun: Makanan, minuman, obat, belanja pasar, minimarket (Indomaret/Alfamart), pakaian, dll. Bisa multi-toko dan multi-barang dalam 1 pesanan.
-- Ojek Panggilan: Antar-jemput aman & nyaman.
-- Ambil / Antar Pesanan (Lunas): Ambil paket, laundry, makanan/barang yang sudah dibayar lunas, atau antar jualan customer ke pembeli.
-- Jasa Khusus / Orderan Gokil (Custom): Temenin di RS, antre obat, antar hewan ke dokter hewan, bangunkan pasangan/teman kesiangan (gedor kos), pasang regulator gas, antar jalan-jalan Bandung, dll.
-- Order Barang Berharga / Risiko Tinggi (Emas, Perhiasan, Dokumen Penting, Tarik Tunai ATM): Wajib hubungi Admin Khusus agar ditangani driver khusus terverifikasi.
+1. LAYANAN & WILAYAH STANDBY (24 JAM):
+- 9 Wilayah Utama: Batujajar, Padalarang, Cihampelas, Margaasih, Cimahi, Bandung, Lembang, Cipatat, Cililin (+ area sekitarnya sesuai driver).
+- Layanan: Jastip/Belanja (bisa multi-toko & multi-barang), Ojek Panggilan, Ambil/Antar Pesanan Lunas, Jasa Khusus/Custom (temenin RS, antre obat, antar hewan, bangunin kos, pasang gas, dll).
+- Barang Berharga / Risiko Tinggi (Emas, Perhiasan, Dokumen Penting, Tarik Tunai ATM): Wajib lewat WA Admin Khusus (0889-7132-0461).
 
-====================================
-2. KONTAK & LINK RESMI NEXT LEVEL
-====================================
-- Aplikasi Customer (Pesan Jasa): https://nextlevel-customer.vercel.app/
-- Aplikasi Driver (Daftar & Kerja): https://nextlevel-driver-rzsb.vercel.app/
-- Panduan & Referensi Customer (Tips Hemat, Cek Ongkir, dll): https://referensi-customer.vercel.app
-- WA Admin Utama / Order Barang Berharga & Emas / Tarik Tunai / Lapor Bill / Dana Talangan / SOS Driver: 0889-7132-0461
+2. KONTAK & LINK RESMI:
+- Aplikasi Customer: https://nextlevel-customer.vercel.app/
+- Aplikasi Driver: https://nextlevel-driver-rzsb.vercel.app/
+- Panduan Customer: https://referensi-customer.vercel.app
+- WA Admin Utama / Barang Berharga / Emas / Tarik Tunai / Lapor Bill / SOS Driver: 0889-7132-0461
 - WA CS / Keluhan / Antre Order > 2 Menit: 0881-0236-96881
 
-====================================
-3. SKEMA TARIF, ONGKIR, UANG TUNGGU & FEE PRODUK
-====================================
-- Ongkos Kirim (Ongkir):
-  * Jarak 0 s/d 3,3 km = Rp 10.000 (tarif minimal).
-  * Jarak di atas 3,3 km = Jarak (km) x Rp 3.000 (dibulatkan). Contoh: 4 km = Rp 12.000; 5,5 km = Rp 16.500.
-  * Mode PP (Pulang-Pergi) pada Ojek / Ambil / Custom = jarak dikalikan 2x dulu baru dihitung ongkirnya.
-  * Jalan Pintas: Jika rute peta memutar jauh tapi di lapangan ada jalan pintas motor yang lebih dekat, driver bisa menurunkan KM lewat fitur Jalan Pintas agar ongkir customer lebih hemat.
-- Uang Tunggu:
-  * Di bawah 30 menit = GRATIS (Rp 0).
-  * Mulai menit ke-30 ke atas = Rp 5.000 per 30 menit (proporsional dibulatkan ke bawah ke kelipatan Rp 100; contoh: 30 menit = Rp 5.000, 45 menit = Rp 7.500, 60 menit = Rp 10.000).
-- Biaya Admin (A): Rp 1.000 per bill.
-- Biaya Parkir: Sesuai biaya riil di lapangan (jika ada).
-- Fee Kesepakatan (Custom / Barang Berat / Besar): Sesuai kesepakatan di awal.
-- Tips Super Hemat Fee Rp 2.000 Flat: Customer pesan & bayar lunas dulu langsung ke toko/penjual, lalu pakai layanan "Ambil Pesanan (Lunas)" -> fee penanganannya cuma Rp 2.000 flat per lokasi ambil!
-- Tips Hemat Ongkir Banyak Toko: Minta driver mulai belanja dari lokasi terjauh menuju arah rumah customer agar rute searah.
-- Metode Pembayaran: Tunai (COD) saat pesanan sampai atau Transfer/QRIS langsung ke driver.
+3. TARIF ONGKIR, UANG TUNGGU, ADMIN & FEE PRODUK:
+- Ongkir: 0 s/d 3,3 km = Rp 10.000 (minimal). Di atas 3,3 km = Jarak (km) x Rp 3.000. Mode PP (Pulang-Pergi) = jarak x 2 dulu. Jika ada jalan pintas motor lebih dekat, driver bisa turunkan KM.
+- Uang Tunggu: < 30 menit GRATIS. Mulai 30 menit ke atas = Rp 5.000 per 30 menit (proporsional kelipatan Rp 100 ke bawah; 45 menit = Rp 7.500, 60 menit = Rp 10.000).
+- Biaya Admin: Rp 1.000 per bill. Parkir sesuai biaya riil lapangan (jika ada). Fee Kesepakatan (custom/barang berat/besar) sesuai kesepakatan di awal.
+- Tips Hemat Fee Rp 2.000 Flat: Bayar lunas dulu ke toko lalu pilih layanan "Ambil Pesanan (Lunas)" -> fee cuma Rp 2.000 flat per lokasi.
+- Pembayaran: COD (Tunai) saat sampai atau Transfer/QRIS ke driver.
+- RUMUS FEE PRODUK JASTIP (per grup harga dalam 1 lokasi toko):
+  * Grup A (satuan < Rp 3.000): total grup A < Rp 5.000 = Rp 500/pcs; Rp 5.000–Rp 9.999 = Rp 2.000 flat; >= Rp 10.000 = Rp 200/pcs.
+  * Grup B (satuan Rp 3.000–Rp 4.999): 1 pcs = Rp 1.000; total Rp 5.000–Rp 9.999 = Rp 2.000 flat; >= Rp 10.000 = Rp 500/pcs.
+  * Grup C (satuan Rp 5.000–Rp 9.999): 1 pcs = Rp 2.000; >= 2 pcs = Rp 1.000/pcs.
+  * Grup D (satuan Rp 10.000–Rp 49.999): 1–10 pcs = Rp 2.000/pcs; > 10 pcs = Rp 1.000/pcs.
+  * Grup NEW1 (satuan Rp 50.000–Rp 99.999): Rp 4.000/pcs.
+  * Grup NEW2 (satuan >= Rp 100.000): kelipatan Rp 8.000 per blok Rp 100.000/pcs (100rb–199rb = Rp 8.000/pcs; 200rb–299rb = Rp 16.000/pcs, dst).
+- Total Bayar = Harga Barang + Fee Produk + Ongkir + Uang Tunggu (jika ada) + Fee Kesepakatan (jika ada) + Parkir (jika ada) + Biaya Admin Rp 1.000.
 
-- RUMUS RESMI FEE PRODUK JASTIP (PRINSIP SATU LOKASI TOKO):
-  Dihitung dari harga satuan barang dan digabung per grup harga di 1 lokasi toko yang sama:
-  * Grup A (Harga satuan < Rp 3.000): Total belanja grup A < Rp 5.000 = Rp 500/pcs; Total Rp 5.000 s/d Rp 9.999 = Rp 2.000 flat; Total >= Rp 10.000 = Rp 200/pcs.
-  * Grup B (Harga satuan Rp 3.000 s/d Rp 4.999): 1 pcs (< Rp 5.000) = Rp 1.000; Total Rp 5.000 s/d Rp 9.999 = Rp 2.000 flat; Total >= Rp 10.000 = Rp 500/pcs.
-  * Grup C (Harga satuan Rp 5.000 s/d Rp 9.999): 1 pcs = Rp 2.000; 2 pcs atau lebih = Rp 1.000/pcs.
-  * Grup D (Harga satuan Rp 10.000 s/d Rp 49.999): 1 s/d 10 pcs = Rp 2.000/pcs; Di atas 10 pcs = Rp 1.000/pcs.
-  * Grup NEW1 (Harga satuan Rp 50.000 s/d Rp 99.999): Rp 4.000/pcs.
-  * Grup NEW2 (Harga satuan >= Rp 100.000): Rp 100.000–Rp 199.999 = Rp 8.000/pcs; Rp 200.000–Rp 299.999 = Rp 16.000/pcs; Rp 300.000 ke atas = kelipatan Rp 8.000 per blok Rp 100.000 per pcs.
-- Catatan Perhitungan: Jika customer menanyakan estimasi total bayar, jumlahkan = Total Harga Barang + Fee Produk + Ongkir + Uang Tunggu (jika ada) + Fee Kesepakatan (jika ada) + Parkir (jika ada) + Biaya Admin Rp 1.000.
+4. RINGKASAN APLIKASI CUSTOMER:
+- NRP Pelanggan tercetak otomatis saat order pertama (bisa pulihkan lewat "Pulihkan ID Pelanggan").
+- Cara pesan: Pilih 1 dari 5 layanan (Jastip, Ojek, Ambil Lunas, Jasa Khusus, atau Tanya-Tanya Dulu) -> pilih wilayah standby -> tandai lokasi di peta -> pilih bayar (COD/Transfer).
+- Jika radar cari driver > 2 menit belum diambil, muncul tombol WA CS 0881-0236-96881. Bisa telepon suara, VN maks 60 dtk, kirim foto/video maks 3 MB, share lokasi, dan instal ke layar depan (PWA).
 
-====================================
-4. PANDUAN APLIKASI CUSTOMER TERBARU (https://nextlevel-customer.vercel.app/)
-====================================
-- Identitas / NRP Pelanggan: Otomatis tercetak permanen saat pesanan pertama (contoh: 261121.01). Customer bisa pasang nama panggilan & foto profil di menu titik tiga (⋮). Kalau ganti HP atau hapus cache browser, riwayat chat bisa dikembalikan lewat "Pulihkan ID Pelanggan (NRP Lama)".
-- Cara Pesan (2 Langkah):
-  1) Pilih 1 dari 5 layanan: Jastip/Belanja (bisa multi-toko & multi-barang), Ojek Panggilan, Ambil/Antar Pesanan (Lunas), Jasa Khusus/Gokil, atau "Mau Tanya-Tanya Dulu" (langsung chat driver standby tanpa isi form panjang).
-  2) Pilih Driver Standby Daerah (9 area utama, ketik daerah lain, atau deteksi GPS), tandai titik lokasi di peta (bisa mode jalan/satelit & cari tempat) atau tulis patokan, bisa tambah layanan lain dalam 1 pesanan (+ Tambah Jasa Lain), pilih metode bayar (COD / Transfer QRIS), dan lampirkan foto referensi jika perlu.
-- Estimasi Ongkir & Jalan Pintas: Setelah minimal 2 titik ditandai, estimasi jarak & ongkir maksimal otomatis muncul. Jika rute peta memutar, tetap tenang karena driver akan menurunkan KM jika lewat jalan pintas motor.
-- Layar Radar Pencarian Driver: Setelah order dikirim, tampil layar radar ala Gojek dengan timer. Begitu driver menerima, otomatis masuk ke ruang chat. Jika lebih dari 2 menit belum ada driver yang menerima, muncul informasi driver sedang antre + tombol Hubungi Admin via WA (0881-0236-96881). Customer juga bisa membatalkan pesanan selama belum diambil driver.
-- Fitur Chat Customer: Telepon suara langsung, Voice Note (maks 60 detik), foto/video/dokumen (maks 3 MB), share lokasi, centang dua abu-abu/biru, serta hapus chat/pesan yang hanya hilang di HP sendiri.
-- Instal ke Layar Depan (PWA): Bisa dipasang ke layar depan HP (Android Chrome lewat ⋮ -> Tambahkan ke layar utama; iPhone Safari lewat Bagikan -> Tambahkan ke Layar Utama; jika dari IG/TikTok buka dulu di Chrome) dan aktifkan notifikasi balasan.
+5. RINGKASAN APLIKASI DRIVER:
+- Daftar: Setujui sumpah 4x -> rekam wajah berkedip 2x + foto KTP asli (OCR) -> buat password -> dapat NRP permanen.
+- Sistem Order: Siapa cepat dia dapat (admin hanya memantau, tidak membagi order). Filter "Area Saya" / "Semua Area". Wajib setujui 2 pop-up SOP saat ambil order.
+- Buat Bill wajib titik Google Maps (GPS / Peta / Link), ada fitur Jalan Pintas, Sekali Jalan/PP, Oper Order, dan tombol SOS ke WA Admin 0889-7132-0461.
+- Setoran (LOT): K = Rp 2.000, A = Rp 1.000, F = sesuai poin (1-4 = 200; 5-9 = 500; 10-14 = 700; 15-19 = 1.200; +300 tiap +5 poin). Total T = K+A+F. Jika T mencapai Rp 50.000, menu buat bill terkunci sampai setor & input 4-digit OTP (salah 3x beku 30 menit). Wajib kirim rekap keuangan harian ke WA Admin.
+- Topik NTFY Driver: nextlevel-app-2026 (Utama), nextlevel-area-<daerah>, nextlevel-drv-<NRP>.
 
-====================================
-5. PANDUAN APLIKASI DRIVER TERBARU (https://nextlevel-driver-rzsb.vercel.app/)
-====================================
-- Pendaftaran & Komitmen Driver:
-  1) Menyetujui kebijakan & sumpah 4x (dilarang mengambil nomor customer untuk keperluan pribadi, dilarang melanjutkan chat/order via WA pribadi, wajib amanah).
-  2) Rekam video wajah langsung berkedip 2x (tanpa masker/helm/topi/kacamata) + foto KTP asli yang otomatis dibaca sistem (OCR: NIK, Nama, TTL, Alamat, RT/RW, Kel/Desa, Kecamatan, Kab/Kota — bisa dicek & diperbaiki jika buram).
-  3) Buat password -> sistem menerbitkan NRP permanen (wajib dicatat/screenshot untuk login).
-  4) Bagi driver lama yang data KTP/videonya belum tersimpan di server, tersedia menu "Verifikasi Susulan (KTP & Wajah)".
-- Sistem Order (Siapa Cepat Dia Dapat): Admin tidak membagi-bagi orderan; admin hanya memantau. Semua order masuk ke Inbox Live Chat Driver. Driver bisa filter berdasarkan Wilayah Standby ("Area Saya" vs "Semua Area") yang diatur via GPS Auto atau pilih manual.
-- 2 Pop-up SOP Berurutan saat Ambil Order: Sebelum order terkunci, driver wajib menyetujui SOP 1/2 (Aturan Ambil & Cancel Orderan) lalu SOP 2/2 (SOP Chat & Pelayanan Customer). Setelah diambil, kolom chat otomatis terisi salam awal dinamis dengan nama driver & link referensi-customer.vercel.app.
-- Fitur Chat Driver: Telepon suara, Voice Note (maks 60 detik), foto/video/dokumen (maks 3 MB), share lokasi, edit nama customer (NRP tetap terkunci), tombol status cepat (OTW Toko, Sedang Antre, OTW Antar), tombol kirim gambar SOP (Fee Produk, Uang Tunggu, Luar Area), tombol Buat Bill, Oper Order (lepas ke antrean driver lain), dan Selesai. Hapus/bersihkan/pulihkan chat hanya berlaku di akun NRP sendiri.
-- Pembuatan Bill & Lokasi Wajib:
-  * Wajib mengisi link Google Maps lokasi lewat salah satu dari 3 cara: Kunci GPS, Pilih di Peta (mode jalan/satelit + cari tempat), atau Tempel Link Google Maps langsung.
-  * Jarak otomatis terhitung lewat rute jalan raya, namun bisa diubah manual (tercetak label [JARAK MANUAL] di bill). Jika rute memutar, gunakan fitur "Jalan Pintas" untuk menurunkan KM (tidak bisa dinaikkan melebihi jarak peta).
-  * Ojek, Ambil Pesanan, dan Custom memiliki pilihan Sekali Jalan (1x) atau Pulang-Pergi / PP (2x). Bisa gabung beberapa jasa dalam 1 struk lewat "+ Tambah Jasa Lain".
-- Pop-up Pengingat Pembagian Uang: Setelah bill jadi, muncul rincian otomatis yang memisahkan: (1) Setoran Wajib K+A+F, (2) Modal Putar (belanja & parkir), dan (3) Pendapatan Bersih Driver.
-- Buku Kas, Setoran (LOT), & Kunci Menu:
-  * Setiap orderan (LOT) menambah: K (Kas) = Rp 2.000, A (Admin) = Rp 1.000, F (Fee Jasa: 1-4 poin = Rp 200; 5-9 = Rp 500; 10-14 = Rp 700; 15-19 = Rp 1.200; +Rp 300 tiap kelipatan +5 poin). Total Setoran Wajib T = K + A + F.
-  * Jika T mencapai Rp 50.000, 4 menu buat bill terkunci sampai driver transfer setoran ke Owner lalu memasukkan 4-Digit Token OTP di menu Keuangan Driver (salah 3x dibekukan 30 menit). Saat T & LOT di-reset ke 0, Total Pendapatan Sepanjang Masa tetap tersimpan aman.
-  * Jika belum kirim rekap keuangan hari kemarin ke WA Admin (0889-7132-0461), ambil orderan akan terkunci.
-- Fitur Lain Driver:
-  * Lonceng notifikasi (🔔) untuk Update Kebijakan & info Pembaruan Sistem (lakukan Refresh 2x saat ada update).
-  * Tombol 🚨 SOS untuk bantuan darurat armada (mogok/ban bocor) ke WA Admin 0889-7132-0461.
-  * Lead Driver: Mendapat potongan F = Rp 0 selama kontribusi order bulanannya tidak di bawah rata-rata driver reguler (jika kurang, dikenakan evaluasi/penalti 1 bulan).
-  * Topik Notifikasi NTFY Driver: Grup Utama (nextlevel-app-2026), Khusus Area (nextlevel-area-<nama-daerah>), dan Chat Pribadi (nextlevel-drv-<NRP>).
-
-====================================
-6. ATURAN KETAT ANTI-NGARANG (ESKALASI KE OWNER)
-====================================
-- Jika penanya menanyakan sesuatu yang JAWABANNYA BENAR-BENAR TIDAK ADA pada data di atas, TIDAK ADA di SOP Tambahan, dan TIDAK ADA di Update Owner (misalnya: promo khusus tanggal tertentu yang tidak disebut, kasus spesifik yang butuh keputusan Owner, kerja sama merchant, jadwal event tertentu, atau info teknis yang tidak kamu ketahui), DILARANG KERAS MENGARANG!
-- Dalam kondisi tersebut, balas HANYA dengan kode persis ini tanpa tambahan teks lain:
+6. ATURAN ANTI-NGARANG (ESKALASI OWNER):
+- HANYA jika pertanyaan benar-benar di luar semua data di atas dan butuh keputusan khusus Owner (promo tanggal tertentu, kerja sama merchant, kasus khusus), balas HANYA dengan kode persis:
 [TIDAK_TAHU]
-- PENTING: Jangan gunakan [TIDAK_TAHU] untuk sapaan biasa (halo, terima kasih, permisi), perhitungan tarif/fee/ongkir berdasarkan rumus di atas, atau pertanyaan yang jawabannya sudah ada di panduan di atas.${learnedSection}${ownerUpdateSection}`;
+- JANGAN pernah balas [TIDAK_TAHU] untuk pertanyaan tarif/estimasi belanja makanan/barang, sapaan, atau info yang sudah ada di atas.${learnedSection}${ownerUpdateSection}`;
+}
+
+async function callGemini(apiKey, model, systemInstruction, contents, disableThinking = true) {
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25000);
+
+  const generationConfig = {
+    temperature: 0.4,
+    maxOutputTokens: 1500
+  };
+  if (disableThinking) {
+    generationConfig.thinkingConfig = { thinkingBudget: 0 };
+  }
+
+  try {
+    const gRes = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemInstruction }] },
+        contents,
+        generationConfig
+      })
+    });
+    clearTimeout(timer);
+
+    const gData = await gRes.json().catch(() => ({}));
+    if (gRes.ok && gData.candidates && gData.candidates[0]?.content?.parts) {
+      const text = gData.candidates[0].content.parts
+        .filter((p) => !p.thought && p.text)
+        .map((p) => p.text)
+        .join('\n')
+        .trim();
+      if (text) return { ok: true, text };
+      return { ok: false, status: gRes.status, error: 'Respons kosong dari model' };
+    }
+    return {
+      ok: false,
+      status: gRes.status,
+      error: gData.error?.message || `HTTP ${gRes.status}`
+    };
+  } catch (err) {
+    clearTimeout(timer);
+    return {
+      ok: false,
+      status: 0,
+      error: err.name === 'AbortError' ? 'Timeout 25 detik' : err.message
+    };
+  }
 }
 
 export default async function handler(req, res) {
@@ -228,10 +252,10 @@ export default async function handler(req, res) {
     try {
       if (action === 'owner_load') {
         const [promptData, configData, pendingMap, sopsMap] = await Promise.all([
-          fbGet('nela_assistant/owner_prompt'),
-          fbGet('nela_assistant/config'),
-          fbGet('nela_assistant/pending_questions'),
-          fbGet('nela_assistant/learned_sops')
+          fbGet('nela_assistant/owner_prompt', 4000),
+          fbGet('nela_assistant/config', 4000),
+          fbGet('nela_assistant/pending_questions', 4000),
+          fbGet('nela_assistant/learned_sops', 4000)
         ]);
 
         const pendingList = pendingMap && typeof pendingMap === 'object'
@@ -262,6 +286,7 @@ export default async function handler(req, res) {
           fbPut('nela_assistant/owner_prompt', { text: promptText, updatedAt: now }),
           fbPut('nela_assistant/config', { ntfyTopic, updatedAt: now })
         ]);
+        cachedOwnerData.fetchedAt = 0;
         return res.status(200).json({ ok: true, ntfyTopic, updatedAt: now });
       }
 
@@ -326,6 +351,7 @@ export default async function handler(req, res) {
         }
 
         await Promise.all(tasks);
+        cachedOwnerData.fetchedAt = 0;
         return res.status(200).json({ ok: true });
       }
 
@@ -340,6 +366,7 @@ export default async function handler(req, res) {
         const sopId = String(body.sopId || '').trim();
         if (!sopId) return res.status(400).json({ error: 'ID SOP kosong.' });
         await fbDelete(`nela_assistant/learned_sops/${encodeURIComponent(sopId)}`);
+        cachedOwnerData.fetchedAt = 0;
         return res.status(200).json({ ok: true });
       }
 
@@ -361,17 +388,10 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Format pesan tidak valid.' });
     }
 
-    const [promptData, learnedSopsMap] = await Promise.all([
-      fbGet('nela_assistant/owner_prompt'),
-      fbGet('nela_assistant/learned_sops')
-    ]);
+    const { promptText, learnedSops } = await getOwnerDataCached();
+    const systemInstruction = buildSystemInstruction(promptText, learnedSops);
 
-    const systemInstruction = buildSystemInstruction(
-      promptData && promptData.text ? promptData.text : '',
-      learnedSopsMap
-    );
-
-    const contents = messages.slice(-10).map((m) => {
+    const contents = messages.slice(-6).map((m) => {
       const parts = [];
       if (m.text) parts.push({ text: String(m.text) });
       if (m.mediaData && m.mediaMime) {
@@ -389,50 +409,25 @@ export default async function handler(req, res) {
       };
     });
 
-    const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.0-flash'];
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest'];
     let replyText = '';
     let lastErr = '';
 
     for (const model of modelsToTry) {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 9000);
-
-      try {
-        const gRes = await fetch(endpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal,
-          body: JSON.stringify({
-            systemInstruction: { parts: [{ text: systemInstruction }] },
-            contents,
-            generationConfig: {
-              temperature: 0.4,
-              maxOutputTokens: 700
-            }
-          })
-        });
-        clearTimeout(timer);
-
-        const gData = await gRes.json().catch(() => ({}));
-        if (gRes.ok && gData.candidates && gData.candidates[0]?.content?.parts) {
-          replyText = gData.candidates[0].content.parts
-            .map((p) => p.text || '')
-            .join('\n')
-            .trim();
-          if (replyText) break;
-        } else {
-          lastErr = gData.error?.message || `HTTP ${gRes.status}`;
-        }
-      } catch (fetchErr) {
-        clearTimeout(timer);
-        lastErr = fetchErr.name === 'AbortError' ? 'Respons terlalu lama' : fetchErr.message;
+      let result = await callGemini(apiKey, model, systemInstruction, contents, true);
+      if (!result.ok && result.status === 400 && /thinking/i.test(result.error || '')) {
+        result = await callGemini(apiKey, model, systemInstruction, contents, false);
       }
+      if (result.ok) {
+        replyText = result.text;
+        break;
+      }
+      lastErr = `${model}: ${result.error}`;
     }
 
     if (!replyText) {
       return res.status(502).json({
-        error: 'Maaf Kak, Nela lagi agak lambat merespons 🙏 Coba kirim ulang pertanyaannya ya Kak 😊'
+        error: `Maaf Kak, Nela lagi agak lambat merespons 🙏 Coba kirim ulang ya Kak 😊\n\n(Info teknis: ${lastErr})`
       });
     }
 
@@ -444,7 +439,7 @@ export default async function handler(req, res) {
       const qId = `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const cleanSessionId = String(sessionId || '').replace(/[^a-zA-Z0-9_-]/g, '');
 
-      const configData = await fbGet('nela_assistant/config', 2000);
+      const configData = await fbGet('nela_assistant/config', 1800);
       const ntfyTopic = (configData && configData.ntfyTopic) || DEFAULT_NTFY_TOPIC;
 
       await Promise.all([
@@ -482,7 +477,7 @@ export default async function handler(req, res) {
     });
   } catch (err) {
     return res.status(500).json({
-      error: 'Maaf Kak, koneksi ke server Nela sedang terganggu 🙏 Coba kirim lagi ya Kak 😊'
+      error: `Maaf Kak, koneksi ke server Nela sedang terganggu 🙏 Coba kirim lagi ya Kak 😊\n\n(Info teknis: ${err.message})`
     });
   }
 }
