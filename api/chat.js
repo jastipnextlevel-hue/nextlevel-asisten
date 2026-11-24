@@ -2,12 +2,19 @@ const FIREBASE_DB_URL = 'https://nextlevel-chat-default-rtdb.asia-southeast1.fir
 const NELA_APP_URL = 'https://nextlevel-asisten.vercel.app/';
 const DEFAULT_NTFY_TOPIC = 'nextlevel-nela-owner';
 
-async function fbGet(path) {
+async function fbGet(path, timeoutMs = 2500) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, { cache: 'no-store' });
+    const res = await fetch(`${FIREBASE_DB_URL}/${path}.json`, {
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    clearTimeout(timer);
     if (!res.ok) return null;
     return await res.json();
   } catch (e) {
+    clearTimeout(timer);
     return null;
   }
 }
@@ -96,11 +103,12 @@ function buildSystemInstruction(ownerPromptText, learnedSopsMap) {
 
   return `Kamu adalah "Nela (Next Level Asisten)", asisten virtual resmi milik jasa NEXT LEVEL (Jastip, Ojek Panggilan, Ambil Pesanan, Jasa Khusus/Gokil) yang melayani semua pihak: calon customer, customer aktif, calon driver, dan driver aktif.
 
-GAYA KOMUNIKASI WAJIB:
-- Bicara dengan gaya santai, ramah, hangat, asik, dan mudah dipahami seperti CS WhatsApp sungguhan (tidak kaku seperti robot, tidak bertele-tele).
+GAYA KOMUNIKASI WAJIB (CEPAT, AKURAT, SOPAN & SANTAI):
+- Jawab LANGSUNG KE INTINYA, jelas, ringkas, dan tidak bertele-tele seperti asisten yang sigap & akurat.
+- Gunakan bahasa yang santai, ramah, hangat, asik, dan sopan kepada siapa pun.
 - WAJIB menyisipkan emoji senyum (😊) dan emoji sopan/sungkem (🙏) secara natural di SETIAP balasan agar penanya merasa nyaman dan dihargai.
-- Jangan pernah menyebutkan fitur "kalkulator" atau menyuruh penanya membuka kalkulator. Jika penanya bertanya soal fee produk, harga barang, jarak/ongkir, uang tunggu, fee kesepakatan, atau total bayar, langsung HITUNG dan JAWAB sendiri dengan jelas, rinci, santai, dan asik!
-- Jika penanya melampirkan screenshot/foto/video dari aplikasi, bantu baca dan jelaskan maksud tombol/menu/kendalanya dengan sabar.
+- Jangan pernah menyebutkan fitur "kalkulator" atau menyuruh penanya membuka kalkulator. Jika penanya bertanya soal fee produk, harga barang, jarak/ongkir, uang tunggu, fee kesepakatan, atau total bayar, langsung HITUNG dan JAWAB sendiri dengan angka yang jelas, santai, dan asik!
+- Jika penanya melampirkan screenshot/foto/video dari aplikasi, bantu baca dan jelaskan maksud tombol/menu/kendalanya dengan jelas dan cepat.
 - DILARANG KERAS membocorkan rahasia internal owner seperti PIN Panel Owner, rumus generate Token OTP, atau konfigurasi database.
 
 ====================================
@@ -353,10 +361,9 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'Format pesan tidak valid.' });
     }
 
-    const [promptData, learnedSopsMap, configData] = await Promise.all([
+    const [promptData, learnedSopsMap] = await Promise.all([
       fbGet('nela_assistant/owner_prompt'),
-      fbGet('nela_assistant/learned_sops'),
-      fbGet('nela_assistant/config')
+      fbGet('nela_assistant/learned_sops')
     ]);
 
     const systemInstruction = buildSystemInstruction(
@@ -364,7 +371,7 @@ export default async function handler(req, res) {
       learnedSopsMap
     );
 
-    const contents = messages.slice(-14).map((m) => {
+    const contents = messages.slice(-10).map((m) => {
       const parts = [];
       if (m.text) parts.push({ text: String(m.text) });
       if (m.mediaData && m.mediaMime) {
@@ -382,39 +389,51 @@ export default async function handler(req, res) {
       };
     });
 
-    const modelsToTry = ['gemini-flash-latest', 'gemini-2.5-flash'];
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.0-flash'];
     let replyText = '';
     let lastErr = '';
 
     for (const model of modelsToTry) {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
-      const gRes = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          contents,
-          generationConfig: {
-            temperature: 0.45,
-            maxOutputTokens: 1200
-          }
-        })
-      });
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 9000);
 
-      const gData = await gRes.json().catch(() => ({}));
-      if (gRes.ok && gData.candidates && gData.candidates[0]?.content?.parts) {
-        replyText = gData.candidates[0].content.parts
-          .map((p) => p.text || '')
-          .join('\n')
-          .trim();
-        if (replyText) break;
-      } else {
-        lastErr = gData.error?.message || `HTTP ${gRes.status}`;
+      try {
+        const gRes = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: systemInstruction }] },
+            contents,
+            generationConfig: {
+              temperature: 0.4,
+              maxOutputTokens: 700
+            }
+          })
+        });
+        clearTimeout(timer);
+
+        const gData = await gRes.json().catch(() => ({}));
+        if (gRes.ok && gData.candidates && gData.candidates[0]?.content?.parts) {
+          replyText = gData.candidates[0].content.parts
+            .map((p) => p.text || '')
+            .join('\n')
+            .trim();
+          if (replyText) break;
+        } else {
+          lastErr = gData.error?.message || `HTTP ${gRes.status}`;
+        }
+      } catch (fetchErr) {
+        clearTimeout(timer);
+        lastErr = fetchErr.name === 'AbortError' ? 'Respons terlalu lama' : fetchErr.message;
       }
     }
 
     if (!replyText) {
-      return res.status(502).json({ error: 'Nela sedang sibuk sebentar, coba kirim ulang ya Kak 🙏 (' + lastErr + ')' });
+      return res.status(502).json({
+        error: 'Maaf Kak, Nela lagi agak lambat merespons 🙏 Coba kirim ulang pertanyaannya ya Kak 😊'
+      });
     }
 
     // Deteksi pertanyaan yang belum bisa dijawab -> simpan ke Panel Owner & kirim NTFY
@@ -424,6 +443,8 @@ export default async function handler(req, res) {
         (lastUserMsg.mediaMime ? '[Penanya mengirim lampiran foto/video tanpa teks]' : '(Pertanyaan kosong)');
       const qId = `q_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
       const cleanSessionId = String(sessionId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+
+      const configData = await fbGet('nela_assistant/config', 2000);
       const ntfyTopic = (configData && configData.ntfyTopic) || DEFAULT_NTFY_TOPIC;
 
       await Promise.all([
@@ -460,6 +481,8 @@ export default async function handler(req, res) {
       escalated: false
     });
   } catch (err) {
-    return res.status(500).json({ error: 'Terjadi gangguan jaringan pada server Nela: ' + err.message });
+    return res.status(500).json({
+      error: 'Maaf Kak, koneksi ke server Nela sedang terganggu 🙏 Coba kirim lagi ya Kak 😊'
+    });
   }
 }
