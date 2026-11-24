@@ -9,6 +9,26 @@ let cachedDiscoveredModels = { list: [], fetchedAt: 0 };
 let lastWorkingModel = '';
 const CACHE_TTL_MS = 30000;
 
+function cleanReplyText(text) {
+  let out = String(text || '');
+  // Ubah format Markdown [label](url) menjadi teks bersih + URL mentah agar klik link tidak 404
+  out = out.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, url) => {
+    const cleanLabel = label.trim().replace(/\/+$/, '');
+    const cleanUrl = url.trim();
+    if (cleanLabel === cleanUrl.replace(/\/+$/, '')) {
+      return cleanUrl;
+    }
+    return `${label.trim()}: ${cleanUrl}`;
+  });
+  // Hilangkan tanda kurung yang membungkus link langsung: (https://...) -> https://...
+  out = out.replace(/\((https?:\/\/[^\s)]+)\)/g, '$1');
+  // Hilangkan tanda baca menempel di ujung link (titik/koma) agar tidak ikut masuk URL
+  out = out.replace(/(https?:\/\/[^\s<>"')]+?)([.,;:!?]+)(?=\s|$)/g, '$1');
+  // Bersihkan garis pemisah "---" yang berdiri sendiri
+  out = out.replace(/^\s*-{3,}\s*$/gm, '');
+  return out.replace(/\n{3,}/g, '\n\n').trim();
+}
+
 async function fbGet(path, timeoutMs = 2000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -129,6 +149,7 @@ function buildSystemInstruction(ownerPromptText, learnedSopsMap) {
 
 GAYA JAWAB WAJIB (CEPAT, RINGKAS, AKURAT, SOPAN & PROAKTIF):
 - Jawab LANGSUNG KE INTINYA, padat, rapi pakai poin singkat agar enak dibaca di layar HP. Jangan pakai garis pemisah "---".
+- ATURAN LINK WAJIB: Saat menulis alamat website/link, TULIS LINK MENTAH BIASA SAJA (contoh: https://nextlevel-driver-rzsb.vercel.app/). DILARANG KERAS memakai format Markdown [teks](link) dan DILARANG mengurung link dengan tanda (...) atau menempelkan tanda titik/koma di akhir link.
 - Gunakan bahasa Indonesia yang santai, ramah, sopan, dan hangat. Sisipkan emoji 😊 dan 🙏 secara natural di setiap balasan.
 - Jika customer bertanya soal harga beli/jastip suatu makanan atau barang TANPA menyebutkan harga pasti atau jaraknya (contoh: "Berapa harga beli bubur?" atau "Beli baju di Cimahi berapa biayanya?"), JANGAN bilang tidak tahu! Langsung jelaskan komponen biayanya, sebutkan perkiraan fee sesuai kisaran harga barang tersebut, berikan 1-2 contoh hitungan singkat yang jelas (harga barang + fee + ongkir + admin Rp 1.000), lalu tanyakan harga pasti, jumlah pcs, dan jaraknya agar bisa dihitungkan total pasnya.
 - DILARANG menyebut fitur "kalkulator" atau menyuruh customer menghitung sendiri. Hitungkan langsung dengan akurat.
@@ -278,12 +299,10 @@ async function callGemini(apiKey, model, systemInstruction, contents, useThinkin
 
 async function tryModel(apiKey, model, systemInstruction, contents, timeoutMs = 15000) {
   const isLite = /lite/i.test(model);
-  // Seri Flash-Lite langsung dipanggil tanpa thinkingConfig agar tidak kena error invalid argument
   if (isLite) {
     return await callGemini(apiKey, model, systemInstruction, contents, false, timeoutMs);
   }
   let result = await callGemini(apiKey, model, systemInstruction, contents, true, timeoutMs);
-  // Jika model non-lite menolak parameter thinkingConfig (HTTP 400 apa pun), langsung ulang tanpa thinkingConfig
   if (!result.ok && result.status === 400) {
     result = await callGemini(apiKey, model, systemInstruction, contents, false, timeoutMs);
   }
@@ -477,7 +496,6 @@ export default async function handler(req, res) {
     }
 
     const tried = new Set();
-    const errors = [];
     let replyText = '';
 
     for (let i = 0; i < primaryModels.length; i++) {
@@ -491,7 +509,6 @@ export default async function handler(req, res) {
         break;
       }
       if (model === lastWorkingModel) lastWorkingModel = '';
-      errors.push(`${model}: ${result.error}`);
     }
 
     if (!replyText) {
@@ -507,13 +524,12 @@ export default async function handler(req, res) {
           lastWorkingModel = model;
           break;
         }
-        errors.push(`${model}: ${result.error}`);
       }
     }
 
     if (!replyText) {
       return res.status(502).json({
-        error: `Maaf Kak, server AI sedang penuh sementara 🙏 Coba kirim ulang beberapa detik lagi ya Kak 😊\n\n(Info teknis: ${errors.slice(0, 3).join(' | ')})`
+        error: 'Maaf Kak, server Nela sedang agak padat sementara 🙏 Coba kirim ulang beberapa detik lagi ya Kak 😊'
       });
     }
 
@@ -558,12 +574,12 @@ export default async function handler(req, res) {
     }
 
     return res.status(200).json({
-      reply: replyText,
+      reply: cleanReplyText(replyText),
       escalated: false
     });
   } catch (err) {
     return res.status(500).json({
-      error: `Maaf Kak, koneksi ke server Nela sedang terganggu 🙏 Coba kirim lagi ya Kak 😊\n\n(Info teknis: ${err.message})`
+      error: 'Maaf Kak, koneksi ke server Nela sedang terganggu 🙏 Coba kirim lagi ya Kak 😊'
     });
   }
 }
