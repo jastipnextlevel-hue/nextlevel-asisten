@@ -5,6 +5,8 @@ const NELA_APP_URL = 'https://nextlevel-asisten.vercel.app/';
 const DEFAULT_NTFY_TOPIC = 'nextlevel-nela-owner';
 
 let cachedOwnerData = { promptText: '', learnedSops: null, fetchedAt: 0 };
+let cachedDiscoveredModels = { list: [], fetchedAt: 0 };
+let lastWorkingModel = '';
 const CACHE_TTL_MS = 30000;
 
 async function fbGet(path, timeoutMs = 2000) {
@@ -178,10 +180,56 @@ GAYA JAWAB WAJIB (CEPAT, RAPI, AKURAT, SOPAN & PROAKTIF):
 - JANGAN pernah balas [TIDAK_TAHU] untuk pertanyaan tarif/estimasi belanja makanan/barang, sapaan, atau info yang sudah ada di atas.${learnedSection}${ownerUpdateSection}`;
 }
 
-async function callGemini(apiKey, model, systemInstruction, contents, disableThinking = true) {
+async function discoverFlashModels(apiKey) {
+  const now = Date.now();
+  if (cachedDiscoveredModels.list.length > 0 && (now - cachedDiscoveredModels.fetchedAt) < 1800000) {
+    return cachedDiscoveredModels.list;
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey)}&pageSize=100`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timer);
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => ({}));
+    const models = Array.isArray(data.models) ? data.models : [];
+
+    const filtered = models
+      .filter((m) => {
+        const methods = m.supportedGenerationMethods || [];
+        if (!methods.includes('generateContent')) return false;
+        const name = String(m.name || '').replace(/^models\//, '').toLowerCase();
+        if (!name.includes('flash')) return false;
+        if (/(tts|audio|image|live|embedding|vision|robotics|computer|customtools|preview-tts)/i.test(name)) {
+          return false;
+        }
+        return true;
+      })
+      .map((m) => String(m.name || '').replace(/^models\//, ''));
+
+    // Prioritaskan flash-lite dulu (paling cepat & jarang padat), lalu versi terbaru
+    filtered.sort((a, b) => {
+      const aLite = /lite/i.test(a) ? 0 : 1;
+      const bLite = /lite/i.test(b) ? 0 : 1;
+      if (aLite !== bLite) return aLite - bLite;
+      return b.localeCompare(a, undefined, { numeric: true });
+    });
+
+    cachedDiscoveredModels = { list: filtered, fetchedAt: Date.now() };
+    return filtered;
+  } catch (e) {
+    clearTimeout(timer);
+    return [];
+  }
+}
+
+async function callGemini(apiKey, model, systemInstruction, contents, disableThinking = true, timeoutMs = 10000) {
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 25000);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   const generationConfig = {
     temperature: 0.4,
@@ -224,9 +272,17 @@ async function callGemini(apiKey, model, systemInstruction, contents, disableThi
     return {
       ok: false,
       status: 0,
-      error: err.name === 'AbortError' ? 'Timeout 25 detik' : err.message
+      error: err.name === 'AbortError' ? `Timeout ${Math.round(timeoutMs / 1000)} detik` : err.message
     };
   }
+}
+
+async function tryModel(apiKey, model, systemInstruction, contents) {
+  let result = await callGemini(apiKey, model, systemInstruction, contents, true, 10000);
+  if (!result.ok && result.status === 400 && /thinking|Unknown name/i.test(result.error || '')) {
+    result = await callGemini(apiKey, model, systemInstruction, contents, false, 10000);
+  }
+  return result;
 }
 
 export default async function handler(req, res) {
@@ -409,25 +465,48 @@ export default async function handler(req, res) {
       };
     });
 
-    const modelsToTry = ['gemini-3.8-flash', 'gemini-flash-latest'];
-    let replyText = '';
-    let lastErr = '';
+    const primaryModels = [];
+    if (lastWorkingModel) primaryModels.push(lastWorkingModel);
+    for (const m of ['gemini-flash-lite-latest', 'gemini-flash-latest']) {
+      if (!primaryModels.includes(m)) primaryModels.push(m);
+    }
 
-    for (const model of modelsToTry) {
-      let result = await callGemini(apiKey, model, systemInstruction, contents, true);
-      if (!result.ok && result.status === 400 && /thinking/i.test(result.error || '')) {
-        result = await callGemini(apiKey, model, systemInstruction, contents, false);
-      }
+    const tried = new Set();
+    const errors = [];
+    let replyText = '';
+
+    for (const model of primaryModels) {
+      tried.add(model);
+      const result = await tryModel(apiKey, model, systemInstruction, contents);
       if (result.ok) {
         replyText = result.text;
+        lastWorkingModel = model;
         break;
       }
-      lastErr = `${model}: ${result.error}`;
+      errors.push(`${model}: ${result.error}`);
+    }
+
+    // Jika alias utama gagal / padat, otomatis cek daftar model Flash aktif milik API key
+    if (!replyText) {
+      const discovered = await discoverFlashModels(apiKey);
+      let extraTries = 0;
+      for (const model of discovered) {
+        if (tried.has(model) || extraTries >= 3) continue;
+        tried.add(model);
+        extraTries++;
+        const result = await tryModel(apiKey, model, systemInstruction, contents);
+        if (result.ok) {
+          replyText = result.text;
+          lastWorkingModel = model;
+          break;
+        }
+        errors.push(`${model}: ${result.error}`);
+      }
     }
 
     if (!replyText) {
       return res.status(502).json({
-        error: `Maaf Kak, Nela lagi agak lambat merespons 🙏 Coba kirim ulang ya Kak 😊\n\n(Info teknis: ${lastErr})`
+        error: `Maaf Kak, server AI sedang penuh sementara 🙏 Coba kirim ulang beberapa detik lagi ya Kak 😊\n\n(Info teknis: ${errors.slice(0, 3).join(' | ')})`
       });
     }
 
