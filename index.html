@@ -97,7 +97,6 @@
       border: 2px solid #22c55e;
       display: block;
       background: #f1f5f9;
-      transition: border-color 0.3s ease;
     }
     .avatar-online-dot {
       position: absolute;
@@ -109,7 +108,6 @@
       background: #22c55e;
       border: 2px solid #ffffff;
       box-shadow: 0 0 6px rgba(34, 197, 94, 0.8);
-      transition: background-color 0.3s ease, box-shadow 0.3s ease;
     }
 
     .header-meta {
@@ -151,7 +149,6 @@
       font-size: 11.5px;
       font-weight: 700;
       color: #16a34a;
-      transition: color 0.3s ease;
     }
     .status-green-lamp {
       width: 8px;
@@ -161,34 +158,11 @@
       box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
       animation: lamp-pulse 1.8s infinite;
       flex-shrink: 0;
-      transition: background-color 0.3s ease;
     }
-
-    /* WARNA INDIKATOR SINYAL: KUAT (HIJAU) / SEDANG (ORANYE) / JELEK (MERAH) */
-    .wa-header.signal-medium .nela-avatar-img { border-color: #f97316; }
-    .wa-header.signal-medium .avatar-online-dot { background: #f97316; box-shadow: 0 0 6px rgba(249, 115, 22, 0.8); }
-    .wa-header.signal-medium .header-status-row { color: #ea580c; }
-    .wa-header.signal-medium .status-green-lamp { background: #f97316; animation: lamp-pulse-orange 1.8s infinite; }
-
-    .wa-header.signal-bad .nela-avatar-img { border-color: #ef4444; }
-    .wa-header.signal-bad .avatar-online-dot { background: #ef4444; box-shadow: 0 0 6px rgba(239, 68, 68, 0.85); }
-    .wa-header.signal-bad .header-status-row { color: #dc2626; }
-    .wa-header.signal-bad .status-green-lamp { background: #ef4444; animation: lamp-pulse-red 1.4s infinite; }
-
     @keyframes lamp-pulse {
       0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.65); }
       70% { box-shadow: 0 0 0 6px rgba(34, 197, 94, 0); }
       100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-    }
-    @keyframes lamp-pulse-orange {
-      0% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.65); }
-      70% { box-shadow: 0 0 0 6px rgba(249, 115, 22, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0); }
-    }
-    @keyframes lamp-pulse-red {
-      0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-      70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
-      100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
 
     .header-right {
@@ -235,7 +209,7 @@
       position: absolute;
       top: calc(56px + var(--safe-top));
       right: 10px;
-      width: 242px;
+      width: 232px;
       background: #ffffff;
       border-radius: 14px;
       border: 1px solid #e2e8f0;
@@ -781,7 +755,7 @@
 
 <div class="app-shell" id="appShell">
   <!-- HEADER TERKUNCI PERMANEN -->
-  <header class="wa-header" id="waHeader">
+  <header class="wa-header">
     <div class="nela-avatar-wrap" onclick="bukaFullImage('nela.jpg')">
       <img class="nela-avatar-img" src="nela.jpg" alt="Nela" onerror="this.src='https://i.postimg.cc/Dyr12NNx/1794292182201.jpg'">
       <span class="avatar-online-dot" aria-hidden="true"></span>
@@ -794,7 +768,7 @@
       </div>
       <div class="header-status-row" id="headerStatusRow">
         <span class="status-green-lamp" id="statusGreenLamp" aria-hidden="true"></span>
-        <span id="headerStatusText">online (sinyal kuat)</span>
+        <span id="headerStatusText">online</span>
       </div>
     </div>
 
@@ -807,11 +781,6 @@
   <!-- DROPDOWN TITIK TIGA -->
   <div id="dropdownBackdrop" class="dropdown-backdrop" onclick="closeHeaderMenu()"></div>
   <div id="headerDropdown" class="dropdown-menu">
-    <button type="button" class="drop-item" style="color:#0f766e;" onclick="closeHeaderMenu(); refreshNelaApp();">
-      <span>🔄</span>
-      <span>Refresh / Segarkan Halaman</span>
-    </button>
-    <div class="drop-divider"></div>
     <button type="button" class="drop-item" onclick="closeHeaderMenu(); openInstallModal();">
       <span>📲</span>
       <span>Pasang ke Layar Depan HP</span>
@@ -834,9 +803,9 @@
   <footer class="composer-footer">
     <div class="quick-chips-bar" id="quickChipsBar">
       <button type="button" class="quick-chip" onclick="sendQuickPrompt('Kak, tolong jelasin cara hitung ongkir dan fee produk jastip dong')">💸 Cek Ongkir &amp; Fee</button>
-      <button type="button" class="quick-chip" onclick="sendQuickPrompt('Bagaimana cara pesan jasa di aplikasi NEXT LEVEL?')">🛍️ Cara Pesan Jasa</button>
-      <button type="button" class="quick-chip" onclick="sendQuickPrompt('Bagaimana cara daftar menjadi mitra driver NEXT LEVEL?')">🛵 Cara Daftar Driver</button>
-      <button type="button" class="quick-chip" onclick="sendQuickPrompt('Tolong jelaskan fitur-fitur terbaru di aplikasi driver dan customer NEXT LEVEL')">📱 Panduan Aplikasi</button>
+      <button type="button" class="quick-chip" onclick="sendQuickPrompt('Sekarang ada driver yang sedang online di area mana saja, dan gimana cara cek driver di aplikasi?')">🟢 Cek Driver Online</button>
+      <button type="button" class="quick-chip" onclick="sendQuickPrompt('Bagaimana cara pesan jasa, simpan alamat Rumah 1/Kantor, dan pilih driver di aplikasi Customer terbaru?')">🛍️ Cara Pesan Terbaru</button>
+      <button type="button" class="quick-chip" onclick="sendQuickPrompt('Bagaimana cara daftar driver baru (KTP, selfie KTP, video kedip) dan atur lokasi standby?')">🛵 Daftar &amp; Standby Driver</button>
     </div>
 
     <div id="attachPreviewBar" class="attach-preview-bar hidden">
@@ -1020,11 +989,6 @@ let isSending = false;
 let ownerSessionPass = sessionStorage.getItem('nela_owner_pass') || '';
 let ownerPendingMap = {};
 let deferredPwaPrompt = null;
-let currentSignalLevel = 'good'; // 'good' | 'medium' | 'bad'
-
-const SIGNAL_ERROR_TEXT =
-  'Maaf Kak, sepertinya sinyal internet Kakak sedang lemah atau terputus 🙏 Nela susah menjawab dengan maksimal kalau sinyalnya kurang bagus.\n\n' +
-  'Pastikan sinyal internet Kakak kuat (lampu indikator di atas berwarna hijau), lalu ketuk *Coba Kirim Ulang* di bawah atau ketuk titik tiga *(⋮)* di pojok kanan atas → pilih *🔄 Refresh / Segarkan Halaman* supaya jawaban Nela kembali akurat dan maksimal ya Kak 😊';
 
 function getJam() {
   const d = new Date();
@@ -1041,6 +1005,7 @@ function escapeHtml(str) {
 
 function formatChatHtml(text) {
   let clean = String(text || '');
+  // Bersihkan format link Markdown & tanda kurung sebelum di-render agar klik link tidak pernah 404
   clean = clean.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, url) => {
     const cLabel = label.trim().replace(/\/+$/, '');
     const cUrl = url.trim();
@@ -1096,73 +1061,6 @@ function showToast(msg) {
   el.style.display = 'block';
   clearTimeout(window._nelaToastTimer);
   window._nelaToastTimer = setTimeout(() => { el.style.display = 'none'; }, 2600);
-}
-
-function refreshNelaApp() {
-  showToast('🔄 Menyegarkan Nela...');
-  setTimeout(() => { window.location.reload(); }, 250);
-}
-
-/* ==================== MONITOR SINYAL REAL-TIME (HIJAU / ORANYE / MERAH) ==================== */
-function getSignalStatusLabel(level) {
-  if (level === 'bad') return 'online (sinyal jelek)';
-  if (level === 'medium') return 'online (sinyal sedang)';
-  return 'online (sinyal kuat)';
-}
-
-function applySignalUI(level) {
-  currentSignalLevel = level;
-  const header = document.getElementById('waHeader');
-  if (header) {
-    header.classList.remove('signal-medium', 'signal-bad');
-    if (level === 'medium') header.classList.add('signal-medium');
-    else if (level === 'bad') header.classList.add('signal-bad');
-  }
-  if (!isSending) {
-    const txt = document.getElementById('headerStatusText');
-    if (txt) txt.innerText = getSignalStatusLabel(level);
-  }
-}
-
-async function checkSignalQuality() {
-  if (!navigator.onLine) {
-    applySignalUI('bad');
-    return;
-  }
-
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (conn && (conn.effectiveType === 'slow-2g' || conn.effectiveType === '2g')) {
-    applySignalUI('bad');
-    return;
-  }
-
-  const start = performance.now();
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 3500);
-  try {
-    await fetch('nela.jpg?ping=' + Date.now(), {
-      method: 'HEAD',
-      cache: 'no-store',
-      signal: controller.signal
-    });
-    clearTimeout(timer);
-    const rtt = performance.now() - start;
-    if (rtt > 1200) applySignalUI('bad');
-    else if (rtt > 420 || (conn && conn.effectiveType === '3g')) applySignalUI('medium');
-    else applySignalUI('good');
-  } catch (e) {
-    clearTimeout(timer);
-    applySignalUI('bad');
-  }
-}
-
-function startSignalMonitor() {
-  checkSignalQuality();
-  setInterval(checkSignalQuality, 12000);
-  window.addEventListener('online', checkSignalQuality);
-  window.addEventListener('offline', () => applySignalUI('bad'));
-  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-  if (conn && conn.addEventListener) conn.addEventListener('change', checkSignalQuality);
 }
 
 function playSoftChime() {
@@ -1392,7 +1290,7 @@ function renderAllMessages() {
 
 function setHeaderStatus(typing) {
   const txt = document.getElementById('headerStatusText');
-  if (txt) txt.innerText = typing ? 'sedang mengetik...' : getSignalStatusLabel(currentSignalLevel);
+  if (txt) txt.innerText = typing ? 'sedang mengetik...' : 'online';
 }
 
 function showTypingIndicator(show) {
@@ -1535,6 +1433,7 @@ async function requestNelaReply(payloadMessages) {
 
     const contentType = (resp.headers.get('content-type') || '').toLowerCase();
 
+    // ==================== MODE STREAMING LANGSUNG (SEPERTI META AI) ====================
     if (resp.ok && contentType.includes('text/event-stream') && resp.body && resp.body.getReader) {
       showTypingIndicator(false);
       liveMsgObj = {
@@ -1593,7 +1492,7 @@ async function requestNelaReply(payloadMessages) {
       delete liveMsgObj._live;
 
       if (!liveMsgObj.text.trim()) {
-        liveMsgObj.text = SIGNAL_ERROR_TEXT;
+        liveMsgObj.text = 'Maaf Kak, server Nela sedang agak padat 🙏 Coba ketuk Kirim Ulang ya Kak 😊';
         liveMsgObj.canRetry = true;
         lastFailedPayload = payloadMessages;
       } else if (!liveMsgObj.canRetry) {
@@ -1605,6 +1504,7 @@ async function requestNelaReply(payloadMessages) {
       return;
     }
 
+    // ==================== FALLBACK MODE JSON STANDAR ====================
     const data = await resp.json().catch(() => ({}));
     clearTimeout(timeoutId);
     showTypingIndicator(false);
@@ -1613,7 +1513,7 @@ async function requestNelaReply(payloadMessages) {
       lastFailedPayload = payloadMessages;
       chatHistory.push({
         role: 'model',
-        text: data.error || SIGNAL_ERROR_TEXT,
+        text: data.error || 'Maaf Kak, sinyal lagi agak padat 🙏 Coba ketuk Kirim Ulang sebentar lagi ya 😊',
         time: getJam(),
         canRetry: true
       });
@@ -1631,7 +1531,6 @@ async function requestNelaReply(payloadMessages) {
   } catch (err) {
     clearTimeout(timeoutId);
     showTypingIndicator(false);
-    checkSignalQuality();
     if (liveMsgObj) {
       delete liveMsgObj._live;
       if (!liveMsgObj.text.trim()) {
@@ -1641,9 +1540,12 @@ async function requestNelaReply(payloadMessages) {
     }
     if (!liveMsgObj) {
       lastFailedPayload = payloadMessages;
+      const errMsg = err && err.name === 'AbortError'
+        ? 'Maaf Kak, sinyal lagi melambat sehingga koneksi terputus 🙏 Coba ketuk tombol Kirim Ulang di bawah ya Kak 😊'
+        : 'Maaf Kak, koneksi internet sepertinya sedang terganggu 🙏 Coba periksa sinyal lalu ketuk Kirim Ulang ya Kak 😊';
       chatHistory.push({
         role: 'model',
-        text: SIGNAL_ERROR_TEXT,
+        text: errMsg,
         time: getJam(),
         canRetry: true
       });
@@ -1682,6 +1584,7 @@ async function sendMessage() {
   inp.style.height = 'auto';
   clearAttachment();
 
+  // Kirim hanya 8 pesan teks terakhir + media HANYA pada pesan terakhir agar super ringan di 4G
   const cleanHistory = chatHistory.filter((m) => !m.canRetry).slice(-8);
   const payloadMessages = cleanHistory.map((m, idx, arr) => {
     const obj = { role: m.role, text: m.text };
@@ -2030,11 +1933,32 @@ async function deleteLearnedSop(sopId) {
 }
 
 /* ==================== BOOTSTRAP ==================== */
+try {
+  history.replaceState({ nela: 'root' }, '', window.location.href);
+  history.pushState({ nela: 'guard' }, '', window.location.href);
+  window.addEventListener('popstate', () => {
+    const modals = ['modalFullImg', 'modalInstallPwa', 'modalOwnerPanel', 'modalOwnerLogin'];
+    for (const id of modals) {
+      const el = document.getElementById(id);
+      if (el && el.classList.contains('open')) {
+        closeModal(id);
+        history.pushState({ nela: 'closed' }, '', window.location.href);
+        return;
+      }
+    }
+    const drop = document.getElementById('headerDropdown');
+    if (drop && drop.classList.contains('open')) {
+      closeHeaderMenu();
+      history.pushState({ nela: 'drop' }, '', window.location.href);
+      return;
+    }
+    history.pushState({ nela: 'stay' }, '', window.location.href);
+  });
+} catch (e) {}
 setupPwaManifest();
 syncViewportHeight();
 loadChatHistory();
 startListeningOwnerReplies();
-startSignalMonitor();
 </script>
 </body>
 </html>
