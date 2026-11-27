@@ -1731,7 +1731,7 @@ function renderOwnerDashboard(data) {
   document.getElementById('ownerPromptTextarea').value = data.ownerPrompt || '';
   document.getElementById('ownerNtfyInput').value = data.ntfyTopic || 'nextlevel-nela-owner';
 
-  const sops = Array.isArray(data.learnedSops) ? data.learnedSops : [];
+  const sops = Array.isArray(data.learnedSops) ? data.learnedSops : []; ownerSopsMap = {}; sops.forEach(x => { if (x && x.id) ownerSopsMap[x.id] = x; });
   document.getElementById('sopCountLabel').innerText = sops.length;
   const sopListEl = document.getElementById('ownerSopList');
   if (sops.length === 0) {
@@ -1743,7 +1743,10 @@ function renderOwnerDashboard(data) {
         <div style="color:#334155; line-height:1.4; margin-bottom:6px;">✅ ${escapeHtml(s.answer)}</div>
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <span style="font-size:10px; color:#64748b;">${s.createdAt ? new Date(s.createdAt).toLocaleString('id-ID') : ''}</span>
-          <button type="button" class="btn-danger-sm" onclick="deleteLearnedSop('${escapeHtml(s.id)}')">Hapus SOP</button>
+          <div style="display:flex; gap:6px;">
+            <button type="button" class="btn-secondary" style="padding:5px 9px; font-size:11px;" onclick="editLearnedSop('${escapeHtml(s.id)}')">✏️ Edit</button>
+            <button type="button" class="btn-danger-sm" onclick="deleteLearnedSop('${escapeHtml(s.id)}')">Hapus SOP</button>
+          </div>
         </div>
       </div>
     `).join('');
@@ -1911,6 +1914,36 @@ async function deletePendingQuestion(qId) {
     refreshOwnerData();
   } catch (e) {
     alert('❌ Gagal menghapus pertanyaan.');
+  }
+}
+
+let ownerSopsMap = {};
+async function editLearnedSop(sopId) {
+  const s = ownerSopsMap[sopId];
+  if (!s) return;
+  const newQ = prompt('Edit topik / pertanyaan SOP:', s.question || '');
+  if (newQ === null || !newQ.trim()) return;
+  const newA = prompt('Edit jawaban wajib Nela untuk SOP ini:', s.answer || '');
+  if (newA === null || !newA.trim()) return;
+  try {
+    showToast('⏳ Menyimpan perubahan SOP ke Firebase...');
+    const resp = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'owner_edit_sop',
+        password: ownerSessionPass,
+        sopId,
+        question: newQ.trim(),
+        answer: newA.trim()
+      })
+    });
+    const data = await resp.json();
+    if (!resp.ok || !data.ok) throw new Error(data.error || 'Gagal');
+    showToast('✅ SOP berhasil diperbarui & langsung aktif!');
+    refreshOwnerData();
+  } catch (e) {
+    alert('❌ Gagal mengedit SOP: ' + e.message);
   }
 }
 
