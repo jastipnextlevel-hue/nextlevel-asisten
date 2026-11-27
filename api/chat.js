@@ -104,14 +104,11 @@ async function fbDelete(path) {
 }
 
 async function getOwnerDataCached() {
-  const now = Date.now();
-  if (cachedOwnerData.fetchedAt && (now - cachedOwnerData.fetchedAt) < CACHE_TTL_MS) {
-    return cachedOwnerData;
-  }
+  // REVISI #15: Selalu tarik segar owner_prompt & learned_sops langsung dari Firebase di setiap pertanyaan (tanpa cache basi)
   const [promptData, learnedSopsMap, standbyMap] = await Promise.all([
-    fbGet('nela_assistant/owner_prompt', 1800),
-    fbGet('nela_assistant/learned_sops', 1800),
-    fbGet('driver_standby_locations', 1500)
+    fbGet('nela_assistant/owner_prompt', 2500),
+    fbGet('nela_assistant/learned_sops', 2500),
+    fbGet('driver_standby_locations', 1800)
   ]);
   cachedOwnerData = {
     promptText: (promptData && promptData.text) ? promptData.text : '',
@@ -162,23 +159,34 @@ function verifyOwnerPassword(passwordInput) {
 }
 
 function buildSystemInstruction(ownerPromptText, learnedSopsMap, liveDriversSummary = '') {
-  let learnedSection = '';
-  if (learnedSopsMap && typeof learnedSopsMap === 'object') {
-    const items = Object.values(learnedSopsMap)
-      .filter((it) => it && it.question && it.answer)
-      .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-    if (items.length > 0) {
-      learnedSection = '\n\n8. SOP TAMBAHAN DARI OWNER (WAJIB DIIKUTI):\n' +
-        items.map((it, idx) => `${idx + 1}. Tanya: "${it.question}" -> Jawab: ${it.answer}`).join('\n');
+  let priorityOverrideBlock = '';
+  const hasOwnerPrompt = !!(ownerPromptText && String(ownerPromptText).trim());
+  const learnedItems = (learnedSopsMap && typeof learnedSopsMap === 'object')
+    ? Object.values(learnedSopsMap)
+        .filter((it) => it && it.question && it.answer)
+        .sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0))
+    : [];
+
+  if (hasOwnerPrompt || learnedItems.length > 0) {
+    priorityOverrideBlock += `=================================================================\n`;
+    priorityOverrideBlock += `🚨 ATURAN PRIORITAS MUTLAK DARI OWNER (WAJIB MENGALAHKAN ATURAN BAWAAN DI BAWAH!)\n`;
+    priorityOverrideBlock += `Setiap informasi, prosedur, syarat pendaftaran, promo, atau SOP di blok ini BERSIFAT FINAL & TERBARU.\n`;
+    priorityOverrideBlock += `Jika ada poin di bawah (bagian 1-6) yang bertentangan dengan blok ini, BATALKAN aturan lama tersebut dan IKUTI 100% aturan Owner di blok ini!\n`;
+    priorityOverrideBlock += `=================================================================\n`;
+    if (hasOwnerPrompt) {
+      priorityOverrideBlock += `\n[UPDATE RESMI TERBARU DARI OWNER]:\n${String(ownerPromptText).trim()}\n`;
     }
+    if (learnedItems.length > 0) {
+      priorityOverrideBlock += `\n[DAFTAR SOP RESMI HASIL BELAJAR OWNER (TERBARU DI ATAS)]:\n` +
+        learnedItems.map((it, idx) => `${idx + 1}. Jika ditanya tentang: "${it.question}" -> WAJIB JAWAB: ${it.answer}`).join('\n') + `\n`;
+    }
+    priorityOverrideBlock += `=================================================================\n\n`;
   }
 
-  let ownerUpdateSection = '';
-  if (ownerPromptText && String(ownerPromptText).trim()) {
-    ownerUpdateSection = `\n\n9. UPDATE ATURAN & PROMO TERBARU DARI OWNER (PRIORITAS TERTINGGI!):\nJika ada informasi di bawah ini yang berbeda dari aturan lama, WAJIB ikuti aturan terbaru ini:\n${String(ownerPromptText).trim()}`;
-  }
+  const learnedSection = '';
+  const ownerUpdateSection = '';
 
-  return `Kamu adalah "Nela (Next Level Asisten)", asisten virtual resmi NEXT LEVEL (Jastip, Ojek Panggilan, Ambil Pesanan, Jasa Khusus 24 Jam) untuk customer dan driver.
+  return `${priorityOverrideBlock}Kamu adalah "Nela (Next Level Asisten)", asisten virtual resmi NEXT LEVEL (Jastip, Ojek Panggilan, Ambil Pesanan, Jasa Khusus 24 Jam) untuk customer dan driver.
 
 GAYA JAWAB WAJIB (TERPERINCI, KONKRET, TERSTRUKTUR, SOPAN & PROAKTIF):
 - Jawab dengan JELAS, RINCI, dan langsung bisa dipraktikkan memakai penomoran rapi (1, 2, 3) dan sub-poin yang enak dibaca di layar HP. Jangan pakai garis pemisah "---".
@@ -558,6 +566,22 @@ export default async function handler(req, res) {
         const sopId = String(body.sopId || '').trim();
         if (!sopId) return res.status(400).json({ error: 'ID SOP kosong.' });
         await fbDelete(`nela_assistant/learned_sops/${encodeURIComponent(sopId)}`);
+        cachedOwnerData.fetchedAt = 0;
+        return res.status(200).json({ ok: true });
+      }
+
+      if (action === 'owner_edit_sop') {
+        const sopId = String(body.sopId || '').trim();
+        const question = String(body.question || '').trim();
+        const answer = String(body.answer || '').trim();
+        if (!sopId || !question || !answer) {
+          return res.status(400).json({ error: 'ID, pertanyaan, dan jawaban SOP wajib diisi.' });
+        }
+        await fbPatch(`nela_assistant/learned_sops/${encodeURIComponent(sopId)}`, {
+          question,
+          answer,
+          updatedAt: Date.now()
+        });
         cachedOwnerData.fetchedAt = 0;
         return res.status(200).json({ ok: true });
       }
