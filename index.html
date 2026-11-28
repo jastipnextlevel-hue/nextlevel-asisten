@@ -1253,8 +1253,8 @@ function bukaFullImage(src) {
 function getWelcomeMessage() {
   const mapMsg = {
     customer: 'Halo Kak! Saya *Nela*, asisten bantuan NEXT LEVEL 😊🙏\n\nBingung cara pesan, simpan alamat, pilih driver, atau mau hitung estimasi ongkir & fee produk jastip? Langsung tanya di sini aja ya Kak—boleh kirim screenshot layar yang bikin bingung juga kok 😊',
-    driver: 'Halo Rekan Driver! Saya *Nela*, asisten bantuan NEXT LEVEL 😊🙏\n\nAda kendala daftar/KYC AI, foto profil resmi, atur lokasi standby manual, cara terima order/antrean, buat bill, atau buka kunci akun? Langsung tanya atau kirim screenshot layarnya ke Nela ya 🙏',
-    admin: 'Halo Admin! Saya *Nela*, asisten bantuan NEXT LEVEL 😊🙏\n\nButuh panduan soal Kas/Kantong Admin, 3 Dompet K/A/F, Terima Setoran, Void/Batalkan Bill, Cek Berkas KYC AI, Pinjaman Driver, atau ada kendala di layar Admin? Langsung tanya atau kirim screenshot-nya ya 😊'
+    driver: 'Halo Rekan Driver! Saya *Nela*, asisten bantuan NEXT LEVEL 😊🙏\n\nAda kendala daftar/verifikasi KYC, foto profil resmi, edit motor/rekening, atur lokasi standby manual, terima order/antrean, buat bill, atau buka kunci akun? Langsung tanya atau kirim screenshot layarnya ke Nela ya 🙏',
+    admin: 'Halo Admin! Saya *Nela*, asisten bantuan NEXT LEVEL 😊🙏\n\nButuh panduan soal Kas/Kantong Admin, 3 Dompet K/A/F, Terima Setoran, Void/Batalkan Bill, Cek & Kunci/Buka Berkas KYC, Pinjaman Driver, atau ada kendala di layar Admin? Langsung tanya atau kirim screenshot-nya ya 😊'
   };
   return {
     role: 'model',
@@ -1274,7 +1274,7 @@ function applyContextQuickChips() {
       ['🔔 Notif & Indikator', 'Apa arti lampu Hijau, Merah, Hitam dan cara aktifkan notifikasi balasan?']
     ],
     driver: [
-      ['📸 SOP Foto & KYC', 'Gimana aturan foto profil resmi dan verifikasi KYC AI supaya langsung lolos?'],
+      ['📸 SOP Foto & KYC', 'Gimana aturan foto profil resmi, verifikasi KYC, dan cara edit profil/rekening driver?'],
       ['📍 Atur Lokasi Standby', 'Gimana cara atur Multi-Lokasi Standby manual yang benar?'],
       ['🧾 Cara Buat Bill', 'Tolong jelasin cara buat bill Jastip/Ojek dan cara pakai Jalan Pintas'],
       ['🔓 Buka Kunci Akun', 'Kenapa akun saya terkunci (Ambil Orderan / Menu Bill) dan gimana cara bukanya?']
@@ -1282,7 +1282,7 @@ function applyContextQuickChips() {
     admin: [
       ['💰 Kas & Dompet K/A/F', 'Tolong jelasin cara baca Uang di Kantong Admin dan 3 Dompet K, A, F'],
       ['❌ Cara Void Bill', 'Gimana cara membatalkan (Void) bill driver yang dobel atau salah jarak?'],
-      ['🎥 Cek Berkas KYC', 'Gimana cara cek dan setujui berkas KYC driver baru yang lolos seleksi AI?'],
+      ['🎥 Cek Berkas KYC', 'Gimana cara cek, kunci jika perlu perbaikan, dan setujui berkas KYC driver baru?'],
       ['✅ Terima Setoran', 'Gimana cara terima setoran 1 klik agar LOT driver langsung reset ke 0?']
     ]
   };
