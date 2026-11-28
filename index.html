@@ -12,7 +12,7 @@
 
   <link id="nela-favicon" rel="icon" type="image/jpeg" href="nela.jpg">
   <link id="nela-apple-icon" rel="apple-touch-icon" href="nela.jpg">
-  <link id="nela-manifest" rel="manifest" href="">
+  <link id="nela-manifest" rel="manifest" href="/manifest.json">
 
   <style>
     :root {
@@ -69,10 +69,42 @@
     .hidden { display: none !important; }
 
     /* ==================== HEADER TERKUNCI PERMANEN ==================== */
+    
+    .nl-signal-bar {
+      width: 100%;
+      padding: calc(4px + var(--safe-top)) 10px 4px 10px;
+      font-size: 10.5px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      flex-shrink: 0;
+      z-index: 60;
+      transition: background 0.25s ease;
+    }
+    .nl-signal-bar.sig-good { background: #ecfdf5; color: #065f46; border-bottom: 1px solid #a7f3d0; }
+    .nl-signal-bar.sig-mid  { background: #fef3c7; color: #92400e; border-bottom: 1.5px solid #f59e0b; }
+    .nl-signal-bar.sig-bad  { background: #fee2e2; color: #991b1b; border-bottom: 1.5px solid #ef4444; }
+    .btn-refresh-blue {
+      background: #2563eb;
+      color: #ffffff;
+      border: none;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 800;
+      cursor: pointer;
+      white-space: nowrap;
+      flex-shrink: 0;
+      box-shadow: 0 2px 6px rgba(37, 99, 235, 0.28);
+    }
+    .btn-refresh-blue:active { transform: scale(0.95); background: #1d4ed8; }
+
     .wa-header {
       background: #ffffff;
       color: var(--text-main);
-      padding: calc(10px + var(--safe-top)) 10px 10px 12px;
+      padding: 9px 10px 9px 12px;
       display: flex;
       align-items: center;
       gap: 10px;
@@ -207,7 +239,7 @@
 
     .dropdown-menu {
       position: absolute;
-      top: calc(56px + var(--safe-top));
+      top: calc(82px + var(--safe-top));
       right: 10px;
       width: 232px;
       background: #ffffff;
@@ -754,6 +786,12 @@
 <div id="toastBar" class="toast-bar">Berhasil!</div>
 
 <div class="app-shell" id="appShell">
+  <!-- INDIKATOR SINYAL PERMANEN -->
+  <div id="nlSignalBar" class="nl-signal-bar sig-good">
+    <span id="nlSignalText">🟢 Sinyal Bagus</span>
+    <span id="nlSignalHint" style="font-size:10px; font-weight:700;">Terhubung ke server</span>
+  </div>
+
   <!-- HEADER TERKUNCI PERMANEN -->
   <header class="wa-header">
     <div class="nela-avatar-wrap" onclick="bukaFullImage('nela.jpg')">
@@ -773,6 +811,7 @@
     </div>
 
     <div class="header-right">
+      <button type="button" class="btn-refresh-blue" onclick="window.location.reload()">Refresh</button>
       <img class="nl-header-logo" src="https://i.postimg.cc/Dyr12NNx/1794292182201.jpg" alt="Logo NEXT LEVEL" title="NEXT LEVEL">
       <button type="button" class="menu-dots-btn" onclick="toggleHeaderMenu()" aria-label="Menu">⋮</button>
     </div>
@@ -781,6 +820,10 @@
   <!-- DROPDOWN TITIK TIGA -->
   <div id="dropdownBackdrop" class="dropdown-backdrop" onclick="closeHeaderMenu()"></div>
   <div id="headerDropdown" class="dropdown-menu">
+    <button type="button" class="drop-item" style="color:#1d4ed8;" onclick="closeHeaderMenu(); window.location.reload();">
+      <span style="background:#2563eb; color:#fff; border-radius:6px; padding:2px 6px; font-size:10px; font-weight:800;">Refresh</span>
+      <span>Segarkan Halaman</span>
+    </button>
     <button type="button" class="drop-item" onclick="closeHeaderMenu(); openInstallModal();">
       <span>📲</span>
       <span>Pasang ke Layar Depan HP</span>
@@ -861,7 +904,7 @@
     <div class="modal-head">
       <span class="modal-head-title">⚙️ Panel Owner Nela</span>
       <div style="display:flex; gap:6px; align-items:center;">
-        <button type="button" class="modal-close-btn" onclick="refreshOwnerData()" title="Muat Ulang">🔄</button>
+        <button type="button" class="btn-refresh-blue" style="padding:5px 9px; font-size:10.5px;" onclick="refreshOwnerData()">Refresh</button>
         <button type="button" class="modal-close-btn" onclick="closeModal('modalOwnerPanel')">✕</button>
       </div>
     </div>
@@ -1105,25 +1148,44 @@ window.addEventListener('resize', syncViewportHeight);
 
 /* ==================== MANIFEST PWA LAYAR DEPAN ==================== */
 function setupPwaManifest() {
-  try {
-    const iconUrl = new URL('nela.jpg', window.location.href).href;
-    const manifestObj = {
-      name: 'Nela - Next Level Asisten',
-      short_name: 'Nela AI',
-      description: 'Asisten Resmi NEXT LEVEL untuk Customer & Driver',
-      start_url: window.location.origin + window.location.pathname,
-      display: 'standalone',
-      background_color: '#efeae2',
-      theme_color: '#ffffff',
-      icons: [
-        { src: iconUrl, sizes: '192x192', type: 'image/jpeg', purpose: 'any' },
-        { src: iconUrl, sizes: '512x512', type: 'image/jpeg', purpose: 'any maskable' }
-      ]
-    };
-    const manEl = document.getElementById('nela-manifest');
-    if (manEl) manEl.href = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(JSON.stringify(manifestObj));
-  } catch (e) {}
+  if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+    navigator.serviceWorker.register('/firebase-messaging-sw.js').catch(() => {});
+  }
 }
+
+let nelaFbConnected = true;
+function updateNelaSignalBar() {
+  const bar = document.getElementById('nlSignalBar');
+  const txt = document.getElementById('nlSignalText');
+  const hint = document.getElementById('nlSignalHint');
+  if (!bar || !txt || !hint) return;
+  const online = navigator.onLine !== false;
+  const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const eff = conn ? String(conn.effectiveType || '').toLowerCase() : '';
+  const rtt = conn ? (parseInt(conn.rtt || 0, 10) || 0) : 0;
+
+  bar.classList.remove('sig-good', 'sig-mid', 'sig-bad');
+  if (!online || !nelaFbConnected || eff === 'slow-2g' || eff === '2g' || rtt >= 1200) {
+    bar.classList.add('sig-bad');
+    txt.innerText = '🔴 Sinyal Jelek / Terputus';
+    hint.innerText = 'Segera klik tombol Refresh!';
+  } else if (eff === '3g' || rtt >= 450) {
+    bar.classList.add('sig-mid');
+    txt.innerText = '🟡 Sinyal Sedang';
+    hint.innerText = 'Jika lambat, klik tombol Refresh';
+  } else {
+    bar.classList.add('sig-good');
+    txt.innerText = '🟢 Sinyal Bagus';
+    hint.innerText = 'Terhubung ke server';
+  }
+}
+db.ref('.info/connected').on('value', (snap) => { nelaFbConnected = (snap.val() !== false); updateNelaSignalBar(); });
+window.addEventListener('online', updateNelaSignalBar);
+window.addEventListener('offline', updateNelaSignalBar);
+if (navigator.connection && navigator.connection.addEventListener) {
+  navigator.connection.addEventListener('change', updateNelaSignalBar);
+}
+setInterval(updateNelaSignalBar, 8000);
 
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
@@ -1989,6 +2051,7 @@ try {
   });
 } catch (e) {}
 setupPwaManifest();
+updateNelaSignalBar();
 syncViewportHeight();
 loadChatHistory();
 startListeningOwnerReplies();
