@@ -1008,11 +1008,15 @@ const firebaseConfig = {
 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-const STORAGE_HISTORY_KEY = 'nela_chat_history_v2';
+const STORAGE_HISTORY_KEY = 'nela_chat_history_v2_' + ((new URLSearchParams(window.location.search).get('from') || 'general').toLowerCase());
 const STORAGE_SESSION_KEY = 'nela_session_id_v2';
 const STORAGE_SEEN_REPLIES_KEY = 'nela_seen_replies_v2';
 const MAX_VIDEO_BYTES = 3 * 1024 * 1024;
 const CHAT_TIMEOUT_MS = 35000;
+
+const urlParamsNela = new URLSearchParams(window.location.search);
+const NELA_APP_CONTEXT = (urlParamsNela.get('from') || 'general').toLowerCase();
+const NELA_IS_EMBED = urlParamsNela.get('embed') === '1';
 
 let chatHistory = [];
 let sessionId = localStorage.getItem(STORAGE_SESSION_KEY) || '';
@@ -1247,11 +1251,49 @@ function bukaFullImage(src) {
 
 /* ==================== CHAT HISTORY & RENDER ==================== */
 function getWelcomeMessage() {
+  const mapMsg = {
+    customer: 'Halo Kak! Saya *Nela*, asisten bantuan NEXT LEVEL 😊🙏\n\nBingung cara pesan, simpan alamat, pilih driver, atau mau hitung estimasi ongkir & fee produk jastip? Langsung tanya di sini aja ya Kak—boleh kirim screenshot layar yang bikin bingung juga kok 😊',
+    driver: 'Halo Rekan Driver! Saya *Nela*, asisten bantuan NEXT LEVEL 😊🙏\n\nAda kendala daftar/KYC AI, foto profil resmi, atur lokasi standby manual, cara terima order/antrean, buat bill, atau buka kunci akun? Langsung tanya atau kirim screenshot layarnya ke Nela ya 🙏',
+    admin: 'Halo Admin! Saya *Nela*, asisten bantuan NEXT LEVEL 😊🙏\n\nButuh panduan soal Kas/Kantong Admin, 3 Dompet K/A/F, Terima Setoran, Void/Batalkan Bill, Cek Berkas KYC AI, Pinjaman Driver, atau ada kendala di layar Admin? Langsung tanya atau kirim screenshot-nya ya 😊'
+  };
   return {
     role: 'model',
-    text: 'Halo Kak! Saya *Nela*, asisten resmi NEXT LEVEL 😊🙏\n\nMau tanya soal ongkir, hitung fee produk jastip, cara pesan layanan, cara daftar driver, atau panduan aplikasi terbaru? Langsung chat aja ya Kak—kalau ada menu yang bikin bingung boleh kirim screenshot atau rekam layarnya juga kok 😊',
+    text: mapMsg[NELA_APP_CONTEXT] || 'Halo Kak! Saya *Nela*, asisten resmi NEXT LEVEL 😊🙏\n\nMau tanya soal ongkir, hitung fee produk jastip, cara pesan layanan, cara daftar driver, atau panduan aplikasi? Langsung chat aja ya Kak—kalau ada menu yang bikin bingung boleh kirim screenshot atau rekam layarnya juga kok 😊',
     time: getJam()
   };
+}
+
+function applyContextQuickChips() {
+  const bar = document.getElementById('quickChipsBar');
+  if (!bar) return;
+  const sets = {
+    customer: [
+      ['💸 Cek Ongkir & Fee', 'Kak, tolong jelasin cara hitung ongkir dan fee produk jastip dong'],
+      ['🛍️ Cara Pesan', 'Bagaimana cara pesan layanan dan pilih driver di aplikasi Customer?'],
+      ['🏠 Simpan Alamat', 'Gimana cara daftar alamat Rumah 1, Kantor, Rumah 2 biar pesan 1 klik?'],
+      ['🔔 Notif & Indikator', 'Apa arti lampu Hijau, Merah, Hitam dan cara aktifkan notifikasi balasan?']
+    ],
+    driver: [
+      ['📸 SOP Foto & KYC', 'Gimana aturan foto profil resmi dan verifikasi KYC AI supaya langsung lolos?'],
+      ['📍 Atur Lokasi Standby', 'Gimana cara atur Multi-Lokasi Standby manual yang benar?'],
+      ['🧾 Cara Buat Bill', 'Tolong jelasin cara buat bill Jastip/Ojek dan cara pakai Jalan Pintas'],
+      ['🔓 Buka Kunci Akun', 'Kenapa akun saya terkunci (Ambil Orderan / Menu Bill) dan gimana cara bukanya?']
+    ],
+    admin: [
+      ['💰 Kas & Dompet K/A/F', 'Tolong jelasin cara baca Uang di Kantong Admin dan 3 Dompet K, A, F'],
+      ['❌ Cara Void Bill', 'Gimana cara membatalkan (Void) bill driver yang dobel atau salah jarak?'],
+      ['🎥 Cek Berkas KYC', 'Gimana cara cek dan setujui berkas KYC driver baru yang lolos seleksi AI?'],
+      ['✅ Terima Setoran', 'Gimana cara terima setoran 1 klik agar LOT driver langsung reset ke 0?']
+    ]
+  };
+  const chosen = sets[NELA_APP_CONTEXT];
+  if (chosen) {
+    bar.innerHTML = chosen.map(([lbl, q]) => `<button type="button" class="quick-chip" onclick="sendQuickPrompt('${q.replace(/'/g, "\\'")}')">${lbl}</button>`).join('');
+  }
+  if (NELA_IS_EMBED) {
+    // Hide top signal bar when embedded inside another app's modal to give more chat space
+    document.getElementById('nlSignalBar')?.classList.add('hidden');
+  }
 }
 
 function loadChatHistory() {
@@ -1489,6 +1531,7 @@ async function requestNelaReply(payloadMessages) {
         action: 'chat',
         stream: true,
         sessionId,
+        appContext: NELA_APP_CONTEXT,
         messages: payloadMessages
       })
     });
@@ -2053,6 +2096,7 @@ try {
 setupPwaManifest();
 updateNelaSignalBar();
 syncViewportHeight();
+applyContextQuickChips();
 loadChatHistory();
 startListeningOwnerReplies();
 </script>
