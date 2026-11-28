@@ -1,0 +1,25 @@
+{
+  "name": "Nela - Next Level Asisten",
+  "short_name": "Nela AI",
+  "description": "Asisten Resmi NEXT LEVEL untuk Customer & Driver",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#efeae2",
+  "theme_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/nela.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "/nela.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    }
+  ]
+}
